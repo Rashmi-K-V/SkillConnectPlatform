@@ -1,0 +1,10 @@
+Server packages :- npm install express cors dotenv
+Database :- npm install mongoose
+Authentication :- npm install jsonwebtoken bcryptjs
+File Upload :- npm install multer
+Cloudinary Storage for video :- npm install cloudinary multer-storage-cloudinary
+npm install axios
+
+logging :- npm install winston
+
+nodemon :- npm install --save-dev nodemon
