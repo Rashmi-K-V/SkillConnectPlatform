@@ -15,4 +15,4 @@ const protect = (req,res,next) =>{
     res.status(401).json({message:"Invalid token, authorization denied"});
   }
 }
-export default protect;
+export  {protect};

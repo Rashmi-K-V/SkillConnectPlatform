@@ -1,5 +1,5 @@
-import User from '../models/user.model.js';
-import Portfolio from '../models/portfolio.model.js';
+import User from '../models/User.js';
+import Portfolio from '../models/Portfolio.js';
 
 const getWorker = async (req, res) => {
   try{

@@ -1,5 +1,5 @@
-import { uploadVideo } from "../services/cloudinary.services";
-import Portfolio from "../models/Portfolio.model";
+import { uploadVideo } from "../services/cloudinary.services.js";
+import Portfolio from "../models/Portfolio.js";
 
 export const uploadWorkerVideo = async(req,res) =>{
   try{
@@ -15,3 +15,5 @@ export const uploadWorkerVideo = async(req,res) =>{
     res.status(500).json({message : "Failed to upload video", error : error.message});
   }
 }
+
+export default uploadWorkerVideo
