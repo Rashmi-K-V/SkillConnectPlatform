@@ -22,6 +22,9 @@ const UserSchema = new mongoose.Schema({
   category : {
     type : String,
     enum : ['plumber','electrician','cleaner','cook'],
+    required: function () {
+      return this.role === "worker";
+    }
   },
   language: {
       type: String,
