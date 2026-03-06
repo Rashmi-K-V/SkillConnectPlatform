@@ -8,3 +8,6 @@ npm install axios
 logging :- npm install winston
 
 nodemon :- npm install --save-dev nodemon
+
+
+one liner - npm install express cors dotenv mongoose jsonwebtoken bcryptjs multer cloudinary multer-storage-cloudinary axios winston socket.io
