@@ -1,0 +1,14 @@
+Core React :- npm create vite@latest frontend cd frontend npm install
+Router := npm install react react-dom
+API := npm install axios
+Tailwind := npm install -D tailwindcss postcss autoprefixer
+npx tailwindcss init -p
+npx shadcn-ui@latest init
+Form Handling := npm install react-hook-form
+Authentication := npm install jwt-decode
+Notify := npm install react-hot-toast
+File Upload := npm install react-hot-toast
+Icons := npm install lucide-react
+
+
+One liner := npm install react-router-dom axios react-hook-form jwt-decode react-hot-toast react-dropzone lucide-react
