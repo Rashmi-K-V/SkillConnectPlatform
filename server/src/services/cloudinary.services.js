@@ -1,7 +1,9 @@
 import cloudinary from 'cloudinary';
 
 export const uploadVideo = async(filePath) =>{
-  const result = await cloudinary.v2.uploader.upload(filePath, {
+  console.log("Cloud name:", process.env.CLOUDINARY_CLOUD_NAME);
+console.log("API key:", process.env.CLOUDINARY_API_KEY);
+  const result = await cloudinary.uploader.upload(filePath, {
     resource_type : "video",
     folder : "worker_videos"
   });

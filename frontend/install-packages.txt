@@ -9,6 +9,9 @@ Authentication := npm install jwt-decode
 Notify := npm install react-hot-toast
 File Upload := npm install react-hot-toast
 Icons := npm install lucide-react
+worker navigation := npm install @react-google-maps/api
+translations : npm install i18next
+Real time tracking := npm install socket.io-client
 
-
-One liner := npm install react-router-dom axios react-hook-form jwt-decode react-hot-toast react-dropzone lucide-react
+One liner := npm install react-router-dom axios react-hook-form jwt-decode react-hot-toast react-dropzone lucide-react i18next react-i18next socket.io-client
+npm install @react-google-maps/api
