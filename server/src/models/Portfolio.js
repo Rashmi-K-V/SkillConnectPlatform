@@ -20,7 +20,8 @@ const portfolioSchema  = new mongoose.Schema({
   priceRange : {
     min : Number,
     max : Number
-  }
+  },
+  
 },{timestamps:true});
 
 const Portfolio = mongoose.model("Portfolio", portfolioSchema);

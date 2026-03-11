@@ -9,7 +9,7 @@ function Login() {
   const navigate = useNavigate();
 
   const handleLogin = async () => {
-    const res = await api.post("/api/login", {
+    const res = await api.post("/auth/login", {
       email,
       password,
     });
