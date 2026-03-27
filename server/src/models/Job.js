@@ -29,7 +29,7 @@ const JobSchema = new mongoose.Schema({
     address : String
   },
   eta : {
-    type : String
+    type : Number
   }
 },{timestamps : true});
 

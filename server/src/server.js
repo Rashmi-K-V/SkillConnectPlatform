@@ -8,16 +8,11 @@ import { initSocket } from "./socket/socket.js";
 
 const PORT = process.env.PORT || 5000;
 
-const startServer = async () => {
-  await connectDB();
+await connectDB();
 
-  const server = http.createServer(app);
+const server = http.createServer(app);
+initSocket(server);
 
-  initSocket(server);
-
-  server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-};
-
-startServer();
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
