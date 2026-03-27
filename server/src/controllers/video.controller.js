@@ -1,5 +1,5 @@
-import cloudinary from "../config/cloudinary.js";
 import Portfolio from "../models/Portfolio.js";
+import { uploadVideo } from "../services/cloudinary.services.js";
 
 export const uploadWorkerVideo = async (req, res) => {
   if (!req.file) {
