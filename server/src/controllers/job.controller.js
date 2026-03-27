@@ -1,4 +1,8 @@
 import Job from "../models/Job.js";
+import { calculateETA } from "../services/eta.services.js";
+
+
+
 
 const requestJob = async (req, res) => {
   const { workerId, description, location } = req.body;
@@ -30,8 +34,9 @@ const acceptJob = async (req, res) => {
   job.price = price;
 
   // simple ETA logic
-  job.eta = 30;
+const etaData = await calculateETA(workerLocation, job.location);
 
+job.eta = etaData.duration;
   await job.save();
 
   res.json(job);

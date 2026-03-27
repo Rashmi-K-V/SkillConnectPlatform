@@ -1,5 +1,5 @@
 import { Server } from "socket.io";
-
+import Message from "../models/Message.js";
 let io;
 
 const initSocket = (server) => {
@@ -14,7 +14,12 @@ const initSocket = (server) => {
     socket.on("joinJob", (jobId) => {
       socket.join(jobId);
     });
-
+    //send message
+    socket.on("sendMessage", async ({ jobId, senderId, text }) => {
+      const message = new Message({ jobId, senderId, text });
+      await message.save();
+      io.to(jobId).emit("receiveMessage", message);
+    });
     // Worker sends location
     socket.on("workerLocation", ({ jobId, location }) => {
       io.to(jobId).emit("updateWorkerLocation", location);
