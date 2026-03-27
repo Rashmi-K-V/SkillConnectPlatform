@@ -10,3 +10,4 @@ console.log("API key:", process.env.CLOUDINARY_API_KEY);
   console.log("Cloudinary upload result:", result);
   return result.secure_url;
 };
+

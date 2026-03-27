@@ -11,11 +11,11 @@ const JobSchema = new mongoose.Schema({
     ref  : "User",
     required : true
   },
-  status : {
-    type: String,
-    enum : ["pending","accecpted","completed","cancelled"],
-    default : "pending"
-  },
+  status: {
+  type: String,
+  enum: ["pending", "accepted", "rejected", "completed"],
+  default: "pending"
+},
   price : {
     type : Number,
     
