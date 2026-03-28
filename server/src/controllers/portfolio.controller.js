@@ -1,5 +1,5 @@
 import Portfolio from "../models/Portfolio.js";
-
+import { translateText } from "../services/translation.service.js";
 // CREATE OR UPDATE PORTFOLIO
 const createOrUpdatePortfolio = async (req, res) => {
   try {
@@ -69,17 +69,32 @@ const getAllPortfolios = async (req, res) => {
 };
 
 // GET SINGLE WORKER
+
 const getPortfolioByWorkerId = async (req, res) => {
   try {
+    const { lang } = req.query;
+
     const portfolio = await Portfolio.findOne({
       workerId: req.params.workerId
-    }).populate("workerId", "name email");
+    }).populate("workerId", "name");
 
     if (!portfolio) {
       return res.status(404).json({ message: "Not found" });
     }
 
-    res.json(portfolio);
+    let translatedDescription = portfolio.description;
+
+    if (lang) {
+      translatedDescription = await translateText(
+        portfolio.description,
+        lang
+      );
+    }
+
+    res.json({
+      ...portfolio._doc,
+      translatedDescription
+    });
 
   } catch (error) {
     res.status(500).json({ message: error.message });

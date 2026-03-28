@@ -34,9 +34,10 @@ const acceptJob = async (req, res) => {
   job.price = price;
 
   // simple ETA logic
-const etaData = await calculateETA(workerLocation, job.location);
+  const etaData = await calculateETA(workerLocation, job.location);
 
-job.eta = etaData.duration;
+  job.eta = etaData.duration;
+  
   await job.save();
 
   res.json(job);
