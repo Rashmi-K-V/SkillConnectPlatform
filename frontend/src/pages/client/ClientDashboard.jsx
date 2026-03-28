@@ -1,38 +1,33 @@
-import React from "react";
-
 import { useNavigate } from "react-router-dom";
+import { useContext } from "react";
+import { LanguageContext } from "../../context/LanguageContext";
 
-function ClientDashboard() {
-  const nav = useNavigate();
+export default function ClientDashboard() {
+  const navigate = useNavigate();
+  const { t } = useContext(LanguageContext);
+
+  const categories = [
+    { name: "electrician", label: "Electrician" },
+    { name: "plumber", label: "Plumber" },
+    { name: "cleaner", label: "Cleaner" },
+    { name: "cook", label: "Cook" },
+  ];
+
+  const handleClick = (category) => {
+    navigate(`/client/browse?category=${category}`);
+  };
 
   return (
     <div>
-      <h2>Select Service Category</h2>
+      <h2>{t("selectCategory") || "Select Service Category"}</h2>
 
       <div>
-        <div>
-          <button onClick={() => nav("/client/workers/electrician")}>
-            Electrician
-          </button>
-        </div>
-
-        <div>
-          <button onClick={() => nav("/client/workers/plumber")}>
-            Plumber
-          </button>
-        </div>
-
-        <div>
-          <button onClick={() => nav("/client/workers/cleaner")}>
-            Cleaner
-          </button>
-        </div>
-
-        <div>
-          <button onClick={() => nav("/client/workers/cook")}>Cook</button>
-        </div>
+        {categories.map((cat) => (
+          <div key={cat.name} style={{ margin: "10px" }}>
+            <button onClick={() => handleClick(cat.name)}>{cat.label}</button>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
-export default ClientDashboard;

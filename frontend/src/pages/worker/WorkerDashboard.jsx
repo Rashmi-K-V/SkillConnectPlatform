@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useContext } from "react";
-import { LanguageContext } from "../../context/LanguageContext";
+import { LanguageContext } from "../../context/LanguageContext.jsx";
 
 function WorkerDashboard() {
   const navigate = useNavigate();
