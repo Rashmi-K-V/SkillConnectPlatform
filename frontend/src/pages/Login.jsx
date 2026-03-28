@@ -1,7 +1,7 @@
 import { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api.services.js";
-import { LanguageContext } from "../context/LanguageContext";
+import { LanguageContext } from "../context/LanguageContext.jsx";
 
 function Login() {
   const [email, setEmail] = useState("");

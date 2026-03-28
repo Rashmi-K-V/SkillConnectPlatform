@@ -1,14 +1,14 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-import Login from "../pages/Login.jsx";
-import Register from "../pages/Register.jsx";
-import SelectLanguage from "../pages/SelectLanguage.jsx";
+import Login from "./pages/Login.jsx";
+import Register from "./pages/Register.jsx";
+import SelectLanguage from "./pages/SelectLanguage.jsx";
 
-import UploadVideo from "../pages/worker/UploadVideo.jsx";
-import PortfolioPage from "../pages/worker/PortfolioPage.jsx";
+import UploadVideo from "./pages/worker/UploadVideo.jsx";
+import PortfolioPage from "./pages/worker/PortfolioPage.jsx";
 
-import BrowseWorkers from "../pages/client/BrowseWorkers.jsx";
-import JobTracking from "../pages/client/JobTracking.jsx";
+import BrowseWorkers from "./pages/client/BrowseWorkers.jsx";
+import JobTracking from "./pages/client/JobTracking.jsx";
 
 export default function AppRoutes() {
   return (

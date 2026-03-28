@@ -1,17 +1,19 @@
-import React from "react";
+import { useContext } from "react";
 import { useNavigate } from "react-router-dom";
+import { LanguageContext } from "../context/LanguageContext.jsx";
 
 function SelectLanguage() {
+  const { setLang, t } = useContext(LanguageContext);
   const navigate = useNavigate();
 
   const selectLanguage = (lang) => {
-    localStorage.setItem("language", lang);
+    setLang(lang);
     navigate("/login");
   };
 
   return (
     <div>
-      <h2>Select Language</h2>
+      <h2>{t("selectLanguage")}</h2>
 
       <button onClick={() => selectLanguage("en")}>English</button>
       <button onClick={() => selectLanguage("hi")}>Hindi</button>
@@ -23,5 +25,4 @@ function SelectLanguage() {
     </div>
   );
 }
-
 export default SelectLanguage;

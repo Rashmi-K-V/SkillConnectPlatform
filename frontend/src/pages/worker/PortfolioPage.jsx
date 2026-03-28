@@ -1,126 +1,118 @@
-import { useState, useEffect } from "react";
-import api from "../../services/api";
+import api from "../../services/api.services.js";
 import UploadVideo from "./UploadVideo";
+import { useState, useEffect, useContext } from "react";
+
+import { LanguageContext } from "../../context/LanguageContext";
 
 function PortfolioPage() {
-  const [profile, setProfile] = useState(null);
+  const [form, setForm] = useState({
+    skills: [],
+    experience: "",
+    description: "",
+    priceRange: { min: "", max: "" },
+  });
 
-  const [skills, setSkills] = useState("");
-  const [services, setServices] = useState("");
-  const [experience, setExperience] = useState("");
+  const { t } = useContext(LanguageContext);
 
-  const [profileImage, setProfileImage] = useState(null);
-
+  // 🔥 load existing portfolio
   useEffect(() => {
-    const fetchProfile = async () => {
-      const res = await api.get("/auth/me");
+    const fetchPortfolio = async () => {
+      try {
+        const res = await api.get("/portfolio/me");
 
-      setProfile(res.data);
+        if (res.data) {
+          setForm(res.data);
+        }
+      } catch (err) {
+        console.log("No portfolio yet");
+      }
     };
 
-    fetchProfile();
+    fetchPortfolio();
   }, []);
 
-  const savePortfolio = async () => {
-    const formData = new FormData();
-
-    formData.append("skills", skills);
-    formData.append("services", services);
-    formData.append("experience", experience);
-
-    if (profileImage) {
-      formData.append("profileImage", profileImage);
+  const handleSave = async () => {
+    try {
+      await api.post("/portfolio", form);
+      alert("Portfolio saved");
+    } catch (err) {
+      alert("Error saving portfolio");
     }
-
-    await api.post("/portfolio", formData);
-
-    alert("Portfolio saved successfully");
   };
-
-  if (!profile) return <p>Loading...</p>;
 
   return (
     <div>
-      <h2>Worker Portfolio</h2>
+      <h2>{t("portfolio") || "Portfolio"}</h2>
 
-      {/* PROFILE IMAGE */}
+      {/* Description */}
+      <textarea
+        placeholder="Description"
+        value={form.description || ""}
+        onChange={(e) => setForm({ ...form, description: e.target.value })}
+      />
 
-      <div>
-        <label>Profile Image</label>
+      <br />
+      <br />
 
-        <input
-          type="file"
-          onChange={(e) => setProfileImage(e.target.files[0])}
-        />
-      </div>
+      {/* Skills */}
+      <input
+        placeholder={t("skills")}
+        value={form.skills?.join(",") || ""}
+        onChange={(e) =>
+          setForm({
+            ...form,
+            skills: e.target.value.split(","),
+          })
+        }
+      />
 
-      {/* AUTOFILLED USER DATA */}
+      <br />
+      <br />
 
-      <div>
-        <label>Name</label>
+      {/* Experience */}
+      <input
+        placeholder={t("experience")}
+        value={form.experience || ""}
+        onChange={(e) => setForm({ ...form, experience: e.target.value })}
+      />
 
-        <input value={profile.name} disabled />
-      </div>
+      <br />
+      <br />
 
-      <div>
-        <label>Email</label>
+      {/* Price Range */}
+      <input
+        placeholder="Min Price"
+        value={form.priceRange?.min || ""}
+        onChange={(e) =>
+          setForm({
+            ...form,
+            priceRange: {
+              ...form.priceRange,
+              min: e.target.value,
+            },
+          })
+        }
+      />
 
-        <input value={profile.email} disabled />
-      </div>
+      <input
+        placeholder="Max Price"
+        value={form.priceRange?.max || ""}
+        onChange={(e) =>
+          setForm({
+            ...form,
+            priceRange: {
+              ...form.priceRange,
+              max: e.target.value,
+            },
+          })
+        }
+      />
 
-      <div>
-        <label>Phone</label>
+      <br />
+      <br />
 
-        <input value={profile.phone} disabled />
-      </div>
-
-      <div>
-        <label>Category</label>
-
-        <input value={profile.category} disabled />
-      </div>
-
-      {/* PORTFOLIO DATA */}
-
-      <div>
-        <label>Skills</label>
-
-        <input
-          placeholder="fan repair, wiring, switchboard"
-          value={skills}
-          onChange={(e) => setSkills(e.target.value)}
-        />
-      </div>
-
-      <div>
-        <label>Services</label>
-
-        <input
-          placeholder="home wiring, light installation"
-          value={services}
-          onChange={(e) => setServices(e.target.value)}
-        />
-      </div>
-
-      <div>
-        <label>Experience</label>
-
-        <textarea
-          placeholder="5 years electrician experience"
-          value={experience}
-          onChange={(e) => setExperience(e.target.value)}
-        />
-      </div>
-
-      {/* VIDEO AI AUTO FILL */}
-
-      <UploadVideo />
-
-      {/* SAVE BUTTON */}
-
-      <button onClick={savePortfolio}>Save Portfolio</button>
+      <button onClick={handleSave}>{t("save")}</button>
     </div>
   );
 }
-
 export default PortfolioPage;
