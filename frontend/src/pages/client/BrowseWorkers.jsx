@@ -1,56 +1,46 @@
-import { useEffect, useState, useContext } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import api from "../../services/api.services.js";
-import { LanguageContext } from "../../context/LanguageContext";
-import { useLocation } from "react-router-dom";
 
 function BrowseWorkers() {
   const [workers, setWorkers] = useState([]);
-
   const navigate = useNavigate();
-  const { lang, t } = useContext(LanguageContext);
   const location = useLocation();
-  const params = new URLSearchParams(location.search);
-  const categoryFromUrl = params.get("category");
-  const [category, setCategory] = useState(categoryFromUrl || "");
-  useEffect(() => {
-    fetchWorkers();
-  }, [category, lang]);
 
-  const fetchWorkers = async () => {
-    try {
-      const res = await api.get(`/portfolio?category=${category}&lang=${lang}`);
+  const params = new URLSearchParams(location.search);
+  const category = params.get("category");
+
+  useEffect(() => {
+    api.get(`/portfolio?category=${category}`).then((res) => {
       setWorkers(res.data);
-    } catch (err) {
-      console.log(err);
-    }
-  };
+    });
+  }, [category]);
 
   return (
-    <div>
-      <h2>{t("browseWorkers")}</h2>
+    <div className="p-6">
+      <h2 className="text-xl font-semibold mb-4 capitalize">
+        {category} Workers
+      </h2>
 
-      {/* Filter */}
-      <select onChange={(e) => setCategory(e.target.value)}>
-        <option value="">All</option>
-        <option value="electrician">Electrician</option>
-        <option value="plumber">Plumber</option>
-        <option value="cleaner">Cleaner</option>
-        <option value="cook">Cook</option>
-      </select>
+      <div className="space-y-4">
+        {workers.map((w) => (
+          <div
+            key={w._id}
+            className="p-4 bg-white rounded-xl shadow hover:shadow-md transition"
+          >
+            <h3 className="font-semibold text-lg">{w.workerId.name}</h3>
 
-      {/* Workers */}
-      {workers.map((w) => (
-        <div key={w._id} style={{ border: "1px solid black", margin: "10px" }}>
-          <h3>{w.workerId.name}</h3>
+            <p className="text-gray-600 text-sm mt-1">{w.description}</p>
 
-          <p>{w.translatedDescription || w.description}</p>
-
-          <button onClick={() => navigate(`/client/worker/${w.workerId._id}`)}>
-            View Profile
-          </button>
-        </div>
-      ))}
+            <button
+              onClick={() => navigate(`/client/worker/${w.workerId._id}`)}
+              className="mt-3 px-4 py-2 bg-black text-white rounded-lg"
+            >
+              View Profile
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

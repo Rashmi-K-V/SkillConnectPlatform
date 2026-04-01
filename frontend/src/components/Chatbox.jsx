@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from "react";
-import socket from "../services/socket";
-import { LanguageContext } from "../context/LanguageContext";
+import socket from "../services/socket.services.js";
+import { LanguageContext } from "../context/LanguageContext.jsx";
 
 function ChatBox({ jobId }) {
   const [message, setMessage] = useState("");

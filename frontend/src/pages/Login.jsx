@@ -43,6 +43,12 @@ function Login() {
       />
 
       <button onClick={handleLogin}>{t("login")}</button>
+      <div>
+        <div>
+          <h3>{t("dont have account?")}</h3>
+          <button onClick={() => navigate("/register")}>{t("register")}</button>
+        </div>
+      </div>
     </div>
   );
 }

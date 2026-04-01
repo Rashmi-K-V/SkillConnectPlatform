@@ -1,9 +1,9 @@
 import { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api.services.js";
-import { LanguageContext } from "../../context/LanguageContext";
+import { LanguageContext } from "../../context/LanguageContext.jsx";
 
-export default function WorkerProfile() {
+function WorkerProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { lang } = useContext(LanguageContext);
@@ -46,3 +46,4 @@ export default function WorkerProfile() {
     </div>
   );
 }
+export default WorkerProfile;

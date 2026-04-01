@@ -1,30 +1,30 @@
 import { useNavigate } from "react-router-dom";
-import { useContext } from "react";
-import { LanguageContext } from "../../context/LanguageContext";
 
 export default function ClientDashboard() {
   const navigate = useNavigate();
-  const { t } = useContext(LanguageContext);
 
   const categories = [
-    { name: "electrician", label: "Electrician" },
-    { name: "plumber", label: "Plumber" },
-    { name: "cleaner", label: "Cleaner" },
-    { name: "cook", label: "Cook" },
+    { name: "electrician", icon: "⚡" },
+    { name: "plumber", icon: "🔧" },
+    { name: "cleaner", icon: "🧹" },
+    { name: "cook", icon: "🍳" },
   ];
 
-  const handleClick = (category) => {
-    navigate(`/client/browse?category=${category}`);
-  };
-
   return (
-    <div>
-      <h2>{t("selectCategory") || "Select Service Category"}</h2>
+    <div className="p-6">
+      <h2 className="text-2xl font-semibold mb-6 text-center">
+        Select Service
+      </h2>
 
-      <div>
+      <div className="grid grid-cols-2 gap-4">
         {categories.map((cat) => (
-          <div key={cat.name} style={{ margin: "10px" }}>
-            <button onClick={() => handleClick(cat.name)}>{cat.label}</button>
+          <div
+            key={cat.name}
+            onClick={() => navigate(`/client/browse?category=${cat.name}`)}
+            className="cursor-pointer p-6 bg-white rounded-2xl shadow hover:shadow-lg transition"
+          >
+            <div className="text-3xl">{cat.icon}</div>
+            <p className="mt-2 capitalize font-medium">{cat.name}</p>
           </div>
         ))}
       </div>

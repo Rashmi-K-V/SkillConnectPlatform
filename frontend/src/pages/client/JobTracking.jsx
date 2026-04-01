@@ -1,53 +1,37 @@
-import { useEffect, useState, useContext } from "react";
-import { useNavigate } from "react-router-dom";
-import api from "../../services/api.services.js";
-import { LanguageContext } from "../../context/LanguageContext";
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import socket from "../../services/socket.services.js";
+import ChatBox from "../../components/ChatBox.jsx";
 
-function BrowseWorkers() {
-  const [workers, setWorkers] = useState([]);
-  const [category, setCategory] = useState("");
-  const navigate = useNavigate();
-  const { lang, t } = useContext(LanguageContext);
+export default function JobTracking() {
+  const { id } = useParams();
+  const [location, setLocation] = useState(null);
 
   useEffect(() => {
-    fetchWorkers();
-  }, [category, lang]);
+    socket.emit("joinJob", id);
 
-  const fetchWorkers = async () => {
-    try {
-      const res = await api.get(`/portfolio?category=${category}&lang=${lang}`);
-      setWorkers(res.data);
-    } catch (err) {
-      console.log(err);
-    }
-  };
+    socket.on("updateWorkerLocation", (loc) => {
+      setLocation(loc);
+    });
+  }, [id]);
 
   return (
-    <div>
-      <h2>{t("browseWorkers")}</h2>
+    <div className="p-6 space-y-4">
+      <div className="bg-white p-4 rounded-xl shadow">
+        <h3 className="font-semibold">Tracking</h3>
 
-      {/* Filter */}
-      <select onChange={(e) => setCategory(e.target.value)}>
-        <option value="">All</option>
-        <option value="electrician">Electrician</option>
-        <option value="plumber">Plumber</option>
-        <option value="cleaner">Cleaner</option>
-        <option value="cook">Cook</option>
-      </select>
+        {location ? (
+          <p className="text-sm text-gray-600">
+            {location.lat}, {location.lng}
+          </p>
+        ) : (
+          <p>Waiting for location...</p>
+        )}
+      </div>
 
-      {/* Workers */}
-      {workers.map((w) => (
-        <div key={w._id} style={{ border: "1px solid black", margin: "10px" }}>
-          <h3>{w.workerId.name}</h3>
-
-          <p>{w.translatedDescription || w.description}</p>
-
-          <button onClick={() => navigate(`/client/worker/${w.workerId._id}`)}>
-            View Profile
-          </button>
-        </div>
-      ))}
+      <div className="bg-white p-4 rounded-xl shadow">
+        <ChatBox jobId={id} />
+      </div>
     </div>
   );
 }
-export default BrowseWorkers;

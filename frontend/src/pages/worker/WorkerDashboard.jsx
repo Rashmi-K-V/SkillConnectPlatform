@@ -1,34 +1,23 @@
 import { useNavigate } from "react-router-dom";
-import { useContext } from "react";
-import { LanguageContext } from "../../context/LanguageContext.jsx";
 
-function WorkerDashboard() {
-  const navigate = useNavigate();
-  const { t } = useContext(LanguageContext);
+export default function WorkerDashboard() {
+  const nav = useNavigate();
 
   return (
-    <div>
-      <h1>Worker Dashboard</h1>
+    <div className="p-6 grid grid-cols-2 gap-4">
+      <div
+        onClick={() => nav("/worker/upload")}
+        className="p-6 bg-white rounded-xl shadow cursor-pointer"
+      >
+        📤 Upload Video
+      </div>
 
-      <button onClick={() => navigate("/worker/upload")}>
-        {t("uploadVideo")}
-      </button>
-
-      <br />
-      <br />
-
-      <button onClick={() => navigate("/worker/portfolio")}>
-        {t("portfolio") || "Portfolio"}
-      </button>
-
-      <br />
-      <br />
-
-      <button onClick={() => navigate("/client/browse")}>
-        {t("browseWorkers")}
-      </button>
+      <div
+        onClick={() => nav("/worker/portfolio")}
+        className="p-6 bg-white rounded-xl shadow cursor-pointer"
+      >
+        📄 Portfolio
+      </div>
     </div>
   );
 }
-
-export default WorkerDashboard;

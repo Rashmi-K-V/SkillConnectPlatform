@@ -14,9 +14,9 @@ function SelectLanguage() {
   return (
     <div>
       <h2>{t("selectLanguage")}</h2>
-
-      <button onClick={() => selectLanguage("en")}>English</button>
-      <button onClick={() => selectLanguage("hi")}>Hindi</button>
+      <div className = "div"><button onClick={() => selectLanguage("en")}>English</button></div>
+      
+      <div className="div"><button onClick={() => selectLanguage("hi")}>Hindi</button></div>
       <button onClick={() => selectLanguage("kn")}>Kannada</button>
       <button onClick={() => selectLanguage("ta")}>Tamil</button>
       <button onClick={() => selectLanguage("te")}>Telugu</button>

@@ -9,8 +9,10 @@ import PortfolioPage from "./pages/worker/PortfolioPage.jsx";
 
 import BrowseWorkers from "./pages/client/BrowseWorkers.jsx";
 import JobTracking from "./pages/client/JobTracking.jsx";
+import WorkerDashboard from "./pages/worker/WorkerDashboard.jsx";
+import ClientDashboard from "./pages/client/ClientDashboard.jsx";
 
-export default function AppRoutes() {
+function AppRoutes() {
   return (
     <BrowserRouter>
       <Routes>
@@ -20,10 +22,13 @@ export default function AppRoutes() {
 
         <Route path="/worker/upload" element={<UploadVideo />} />
         <Route path="/worker/portfolio" element={<PortfolioPage />} />
+        <Route path="/worker/dashboard" element={<WorkerDashboard />} />
 
         <Route path="/client/browse" element={<BrowseWorkers />} />
+        <Route path="/client/dashboard" element={<ClientDashboard />} />
         <Route path="/client/job/:id" element={<JobTracking />} />
       </Routes>
     </BrowserRouter>
   );
 }
+export default AppRoutes;
