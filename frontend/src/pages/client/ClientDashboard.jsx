@@ -23,8 +23,12 @@ export default function ClientDashboard() {
             onClick={() => navigate(`/client/browse?category=${cat.name}`)}
             className="cursor-pointer p-6 bg-white rounded-2xl shadow hover:shadow-lg transition"
           >
-            <div className="text-3xl">{cat.icon}</div>
-            <p className="mt-2 capitalize font-medium">{cat.name}</p>
+            <div className="text-center mt-4 text-4xl ">
+              <div className="text-3xl">{cat.icon}</div>
+            </div>
+            <div className="text-center bg-cyan-100 ">
+              <p className="mt-2 capitalize font-medium">{cat.name}</p>
+            </div>
           </div>
         ))}
       </div>

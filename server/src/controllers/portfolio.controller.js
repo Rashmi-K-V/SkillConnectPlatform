@@ -1,5 +1,6 @@
 import Portfolio from "../models/Portfolio.js";
 import { translateText } from "../services/translation.service.js";
+import User from "../models/User.js";
 // CREATE OR UPDATE PORTFOLIO
 const createOrUpdatePortfolio = async (req, res) => {
   try {
@@ -51,20 +52,27 @@ const getMyPortfolio = async (req, res) => {
 };
 
 // GET ALL WORKERS (FILTERED)
-const getAllPortfolios = async (req, res) => {
+ const getAllPortfolios = async (req, res) => {
   try {
     const { category } = req.query;
 
-    const filter = {};
-    if (category) filter.category = category;
+    let filter = {};
 
-    const portfolios = await Portfolio.find(filter)
-      .populate("workerId", "name email");
+    if (category) {
+      const users = await User.find({ category });
+
+      const userIds = users.map(u => u._id);
+
+      filter.workerId = { $in: userIds };
+    }
+
+    const portfolios = await Portfolio.find(filter).populate("workerId", "name category");
 
     res.json(portfolios);
 
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+  } catch (err) {
+    console.log(err)
+    res.status(500).json({ message: err.message });
   }
 };
 

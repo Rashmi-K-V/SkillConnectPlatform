@@ -23,6 +23,7 @@ function Login() {
         : navigate("/client/dashboard");
     } catch (err) {
       alert("Login failed");
+      console.log(err);
     }
   };
 

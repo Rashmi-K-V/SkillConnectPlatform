@@ -11,7 +11,7 @@ function BrowseWorkers() {
   const category = params.get("category");
 
   useEffect(() => {
-    api.get(`/portfolio?category=${category}`).then((res) => {
+    api.get(`/portfolios?category=${category.toLowerCase()}`).then((res) => {
       setWorkers(res.data);
     });
   }, [category]);
