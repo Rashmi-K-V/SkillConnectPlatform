@@ -1,5 +1,5 @@
 import Portfolio from "../models/Portfolio.js";
-import { translateText } from "../services/translation.service.js";
+import { translateText } from "../services/translation.services.js";
 import User from "../models/User.js";
 // CREATE OR UPDATE PORTFOLIO
 const createOrUpdatePortfolio = async (req, res) => {

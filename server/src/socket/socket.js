@@ -1,6 +1,6 @@
 import { Server } from "socket.io";
 import Message from "../models/Message.js";
-import { translateText } from "../services/translation.service.js";
+import { translateText } from "../services/translation.services.js";
 
 let io;
 
