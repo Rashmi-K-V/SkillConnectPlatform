@@ -1,1 +1,2 @@
 pip install flask pillow requests transformers torch
+pip install openai-whisper  //speech - to -text

@@ -8,6 +8,7 @@ import workerRoutes from "./routes/worker.routes.js";
 import videoRoutes from "./routes/video.routes.js";
 import jobRoutes from "./routes/job.routes.js";
 import portfolioRoutes from "./routes/portfolio.routes.js";
+import messageRoutes from "./routes/message.routes.js";
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.use("/api/workers", workerRoutes);
 app.use("/api/video", videoRoutes);
 app.use("/api/jobs", jobRoutes);
 app.use("/api/portfolios", portfolioRoutes);
+app.use("/api/messages", messageRoutes);
 
 app.get("/", (req, res) => {
   res.send("API running");

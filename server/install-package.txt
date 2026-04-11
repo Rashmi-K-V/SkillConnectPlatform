@@ -13,3 +13,4 @@ npm install fluent-ffmpeg ffmpeg-static [frame extractor]
 
 one liner - npm install express cors dotenv mongoose jsonwebtoken bcryptjs multer cloudinary multer-storage-cloudinary axios winston socket.io
 fluent-ffmpeg ffmpeg-static
+npm install ffprobe-static
