@@ -1,69 +1,70 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { WorkerProvider } from "../context/WorkerContext.jsx";
+// src/App.jsx — add these routes inside your <Routes>
+// This shows ONLY the client section — merge with your existing routes
 
-// Public
-import Login from "../pages/Login.jsx";
-import Register from "../pages/Register.jsx";
-import SelectLanguage from "../pages/SelectLanguage.jsx";
-
-// Worker layout + pages
-import WorkerLayout from "../pages/worker/WorkerDashboard.jsx";
-import UploadVideo from "../pages/worker/UploadVideo.jsx";
-import PortfolioPage from "../pages/worker/PortfolioPage.jsx";
-import Jobs from "../pages/worker/Jobs.jsx";
-import Messages from "../pages/worker/Messages.jsx";
-
-// Client pages
 import ClientDashboard from "../pages/client/ClientDashboard.jsx";
 import BrowseWorkers from "../pages/client/BrowseWorkers.jsx";
-import JobTracking from "../pages/client/JobTracking.jsx";
-import WorkerProfile from "../pages/client/WorkerPorfile.jsx";
+import BrowseAllWorkers from "../pages/client/BrowseAllWorkers.jsx";
+import MyJobs from "../pages/client/MyJobs.jsx";
 import SettingsPage from "../pages/SettingsPage.jsx";
 
-export default function AppRoutes() {
+// Worker detail page (you likely already have this)
+// import WorkerProfile from "./pages/client/WorkerProfile.jsx";
+
+/*
+  <Route path="/client" element={<ClientDashboard />}>
+    <Route path="dashboard"  element={<ClientHome />} />   ← handled inside ClientDashboard
+    <Route path="browse"     element={<BrowseWorkers />} />
+    <Route path="browse-all" element={<BrowseAllWorkers />} />
+    <Route path="jobs"       element={<MyJobs />} />
+    <Route path="settings"   element={<SettingsPage />} />
+    <Route path="worker/:id" element={<WorkerProfile />} />
+  </Route>
+
+  Note: ClientDashboard uses <Outlet /> so nested routes render inside the sidebar layout.
+  The dashboard home content is rendered directly when path === "/client/dashboard".
+*/
+
+// Example full App.jsx:
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import SelectLanguage from "../pages/SelectLanguage.jsx";
+import Login from "../pages/Login.jsx";
+import Register from "../pages/Register.jsx";
+import WorkerLayout from "../pages/worker/WorkerDashboard.jsx";
+import PortfolioPage from "../pages/worker/PortfolioPage.jsx";
+import UploadVideo from "../pages/worker/UploadVideo.jsx";
+
+export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* ── Public ── */}
+        {/* Public */}
         <Route path="/" element={<SelectLanguage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* ── Worker (nested under layout) ── */}
-        <Route
-          path="/worker"
-          element={
-            <WorkerProvider>
-              <WorkerLayout />
-            </WorkerProvider>
-          }
-        >
-          {/* /worker → dashboard home (handled inside WorkerLayout as index) */}
+        {/* Worker — layout with sidebar */}
+        <Route path="/worker" element={<WorkerLayout />}>
           <Route path="dashboard" element={null} />{" "}
-          {/* legacy redirect compat */}
+          {/* home rendered by WorkerLayout */}
           <Route path="upload" element={<UploadVideo />} />
           <Route path="portfolio" element={<PortfolioPage />} />
-          <Route path="jobs" element={<Jobs />} />
-          <Route path="messages" element={<Messages />} />
+          <Route path="settings" element={<SettingsPage />} />
+          {/* <Route path="jobs"    element={<WorkerJobs />} /> */}
+          {/* <Route path="messages" element={<WorkerMessages />} /> */}
         </Route>
 
-        {/* Legacy flat route — redirects into nested layout */}
-        <Route
-          path="/worker/dashboard"
-          element={
-            <WorkerProvider>
-              <WorkerLayout />
-            </WorkerProvider>
-          }
-        />
+        {/* Client — layout with sidebar */}
+        <Route path="/client" element={<ClientDashboard />}>
+          <Route path="dashboard" element={null} />{" "}
+          {/* home rendered by ClientDashboard */}
+          <Route path="browse" element={<BrowseWorkers />} />
+          <Route path="browse-all" element={<BrowseAllWorkers />} />
+          <Route path="jobs" element={<MyJobs />} />
+          <Route path="settings" element={<SettingsPage />} />
+          {/* <Route path="worker/:id" element={<WorkerProfile />} /> */}
+        </Route>
 
-        <Route path="/worker/settings" element={<SettingsPage />} />
-        <Route path="/client/settings" element={<SettingsPage />} />
-        {/* ── Client ── */}
-        <Route path="/client/dashboard" element={<ClientDashboard />} />
-        <Route path="/client/browse" element={<BrowseWorkers />} />
-        <Route path="/client/job/:id" element={<JobTracking />} />
-        <Route path="/client/worker/:id" element={<WorkerProfile />} />
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>
   );

@@ -1,66 +1,129 @@
-import User from '../models/User.js';
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
+// controllers/auth.controller.js
+import User      from "../models/User.js";
+import Portfolio from "../models/Portfolio.js";
+import bcrypt    from "bcryptjs";
+import jwt       from "jsonwebtoken";
 
-const generateToken = (id, role) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET, {
-    expiresIn: "7d"
-  });
-};
-
-const register = async (req, res) => {
+// ── REGISTER ──────────────────────────────────────────────────
+export const register = async (req, res) => {
   try {
-    const { name, email, password, role, language } = req.body;
+    const { name, email, password, role, category } = req.body;
 
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ message: "User already exists" });
+    if (!name || !email || !password || !role) {
+      return res.status(400).json({ message: "name, email, password and role are required" });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    if (role === "worker" && !category) {
+      return res.status(400).json({ message: "Workers must select a category" });
+    }
 
-    const newUser = await User.create({
-      name,
-      email,
-      password: hashedPassword,
-      role,
-      language
-    });
+    const existing = await User.findOne({ email });
+    if (existing) return res.status(409).json({ message: "Email already registered" });
 
-    res.json({
-      _id: newUser._id,
-      token: generateToken(newUser._id, newUser.role)
-    });
+    const hashed = await bcrypt.hash(password, 10);
+    const user   = await User.create({ name, email, password: hashed, role });
 
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    // For workers — create a blank portfolio pre-seeded with their category
+    // so clients can find them immediately even before they upload a video
+    if (role === "worker" && category) {
+      await Portfolio.create({
+        workerId: user._id,
+        category,
+        skills: [],
+      });
+    }
+
+    res.status(201).json({ message: "Registered successfully" });
+  } catch (err) {
+    console.error("register:", err);
+    res.status(500).json({ message: err.message });
   }
 };
 
-const login = async (req, res) => {
+// ── LOGIN ────────────────────────────────────────────────────
+export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
+    if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) return res.status(401).json({ message: "Invalid credentials" });
+
+    const token = jwt.sign(
+      { _id: user._id, role: user.role, name: user.name, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
 
     res.json({
-      _id: user._id,
-      role: user.role,
-      token: generateToken(user._id, user.role)
+      token,
+      role:  user.role,
+      name:  user.name,
+      email: user.email,
+      _id:   user._id,
     });
-
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+  } catch (err) {
+    console.error("login:", err);
+    res.status(500).json({ message: err.message });
   }
 };
 
-const getProfile = async (req, res) => {
-  const user = await User.findById(req.user.id).select("-password");
-  res.json(user);
+// ── GET ME ────────────────────────────────────────────────────
+export const getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select("-password");
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };
 
-export { register, login, getProfile };
+// ── UPDATE PROFILE ────────────────────────────────────────────
+export const updateProfile = async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { ...(name && { name }), ...(email && { email }) },
+      { new: true }
+    ).select("-password");
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ── CHANGE PASSWORD ───────────────────────────────────────────
+export const changePassword = async (req, res) => {
+  try {
+    const { current, password } = req.body;
+    const user = await User.findById(req.user._id);
+    const match = await bcrypt.compare(current, user.password);
+    if (!match) return res.status(401).json({ message: "Current password is incorrect" });
+    user.password = await bcrypt.hash(password, 10);
+    await user.save();
+    res.json({ message: "Password updated" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ── UPLOAD AVATAR ─────────────────────────────────────────────
+export const uploadAvatar = async (req, res) => {
+  try {
+    // expects multer to handle the file upload and give you a URL
+    // adjust based on your upload middleware (cloudinary etc.)
+    const url = req.file?.path || req.body.avatar;
+    if (!url) return res.status(400).json({ message: "No avatar provided" });
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { profilePicture: url },
+      { new: true }
+    ).select("-password");
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

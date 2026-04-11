@@ -1,6 +1,7 @@
+// controllers/video.controller.js
 import Portfolio from "../models/Portfolio.js";
-import { uploadVideo }        from "../services/cloudinary.services.js";
-import { extractFrames }      from "../services/frameExtractor.services.js";
+import { uploadVideo }         from "../services/cloudinary.services.js";
+import { extractFrames }       from "../services/frameExtractor.services.js";
 import { generateDescription } from "../services/blip.services.js";
 import fs   from "fs";
 import path from "path";
@@ -15,7 +16,6 @@ export const uploadWorkerVideo = async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    // Absolute path so Python can also read the audio
     const videoPath = path.resolve(req.file.path).replace(/\\/g, "/");
 
     // 1. Upload to Cloudinary
@@ -26,37 +26,49 @@ export const uploadWorkerVideo = async (req, res) => {
     // 2. Extract frames
     console.log("Step 2: Extracting frames...");
     const framePaths = await extractFrames(videoPath);
-    console.log("Frames:", framePaths);
+    console.log("Frames extracted:", framePaths.length);
 
-    // 3. Run BLIP + Whisper
+    // 3. Run BLIP + Whisper ML pipeline
     console.log("Step 3: Running ML pipeline...");
     const { description, skills, auto_fill } = await generateDescription(framePaths, videoPath);
-    console.log("Description:", description);
-    console.log("Skills:", skills);
-    console.log("Auto-fill:", auto_fill);
+    console.log("Skills detected:", skills);
+    console.log("Auto-fill data:", auto_fill);
 
-    // 4. Cleanup frames
+    // 4. Cleanup temp frames
     framePaths.forEach((p) => {
       try { fs.unlinkSync(p); } catch (e) { console.error("Frame delete error:", e.message); }
     });
 
-    // 5. Save / update portfolio
-    console.log("Step 4: Saving portfolio...");
+    // 5. Save to Portfolio — map auto_fill fields directly to schema fields
+    // FIX: Portfolio has no auto_fill field — save each field individually
+    console.log("Step 4: Saving to portfolio...");
+
+    const portfolioUpdate = {
+      workerId:    req.user._id,
+      videoUrl,
+      description,
+      skills: skills || [],
+    };
+
+    // Map auto_fill fields to Portfolio schema fields (only if truthy)
+    if (auto_fill?.name)       portfolioUpdate.name       = auto_fill.name;
+    if (auto_fill?.age)        portfolioUpdate.age        = Number(auto_fill.age) || undefined;
+    if (auto_fill?.gender)     portfolioUpdate.gender     = auto_fill.gender;
+    if (auto_fill?.experience) portfolioUpdate.experience = auto_fill.experience;
+    if (auto_fill?.contact)    portfolioUpdate.contact    = auto_fill.contact;
+    if (auto_fill?.pricing)    portfolioUpdate.pricing    = auto_fill.pricing;
+
     const portfolio = await Portfolio.findOneAndUpdate(
-      { workerId: req.user.id },
-      {
-        videoUrl,
-        description,
-        skills,           // array of skill strings from keyword map
-        auto_fill,        // { name, age, gender, experience } — frontend uses this to pre-fill
-      },
-      { returnDocument: "after", upsert: true }
+      { workerId: req.user._id },
+      { $set: portfolioUpdate },
+      { new: true, upsert: true }
     );
 
-    res.json({ portfolio, auto_fill });
+    // Return both portfolio and auto_fill so frontend can pre-fill the form
+    res.json({ portfolio, auto_fill: auto_fill || {} });
 
   } catch (err) {
-    console.error("ERROR:", err);
+    console.error("uploadWorkerVideo ERROR:", err);
     res.status(500).json({ message: err?.message || String(err) });
   }
 };

@@ -1,20 +1,15 @@
-
+// routes/message.routes.js
 import express from "express";
-import Message from "../models/Message.js";
+import multer  from "multer";
+import { getMessages, sendMessage } from "../controllers/message.controller.js";
 import { protect } from "../middleware/auth.middleware.js";
+
+// store voice files temporarily in uploads/
+const upload = multer({ dest: "uploads/" });
 
 const router = express.Router();
 
-// Get all messages for a job
-router.get("/:jobId", protect, async (req, res) => {
-  try {
-    const messages = await Message.find({ jobId: req.params.jobId })
-      .populate("senderId", "name")
-      .sort({ createdAt: 1 });
-    res.json(messages);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
+router.get("/:jobId",              protect, getMessages);
+router.post("/:jobId", protect, upload.single("audio"), sendMessage);
 
 export default router;

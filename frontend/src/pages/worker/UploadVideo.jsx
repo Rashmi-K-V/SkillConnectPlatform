@@ -1,27 +1,35 @@
 // src/pages/worker/UploadVideo.jsx
 import { useState } from "react";
-import axios from "axios";
+import api from "../../services/api.services.js";
 import { useWorker } from "../../context/WorkerContext.jsx";
 
+const CATEGORIES = ["electrician", "plumber", "cleaner", "cook", "tailor"];
+
 export default function UploadVideo() {
-  const { refreshPortfolio } = useWorker();
+  const { refreshPortfolio, portfolio, user } = useWorker();
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [step, setStep] = useState("idle"); // idle | uploading | done
-  const [form, setForm] = useState({
-    name: "",
+  const [step, setStep] = useState("idle"); // idle | uploading | done | saved
+  const [stepIdx, setStepIdx] = useState(0);
+  const [saving, setSaving] = useState(false);
+
+  const emptyForm = {
+    name: user?.name || "",
     age: "",
     gender: "",
-    email: "",
+    email: user?.email || "",
     contact: "",
     experience: "",
     pricing: "",
     skills: [],
-  });
+    description: "",
+    category: portfolio?.category || "",
+    videoUrl: "",
+  };
+  const [form, setForm] = useState(emptyForm);
   const [newSkill, setNewSkill] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
 
+  // ── Shared styles ──────────────────────────────────────────
   const card = {
     background: "#1a1a1a",
     border: "1px solid rgba(255,255,255,0.07)",
@@ -29,16 +37,16 @@ export default function UploadVideo() {
     padding: 24,
     marginBottom: 16,
   };
-  const label = {
-    fontSize: 12,
+  const lb = {
+    fontSize: 11,
     fontWeight: 600,
-    color: "rgba(255,255,255,0.45)",
+    color: "rgba(255,255,255,0.4)",
     textTransform: "uppercase",
-    letterSpacing: "0.08em",
+    letterSpacing: "0.09em",
     display: "block",
     marginBottom: 6,
   };
-  const input = {
+  const inp = {
     width: "100%",
     background: "rgba(255,255,255,0.05)",
     border: "1px solid rgba(255,255,255,0.1)",
@@ -49,41 +57,71 @@ export default function UploadVideo() {
     fontFamily: "'Manrope',sans-serif",
     outline: "none",
     boxSizing: "border-box",
+    transition: "border-color 0.15s",
   };
-  const btn = (color = "#c8f135", text = "#0d0d0d") => ({
-    padding: "11px 24px",
-    background: color,
-    color: text,
+  const primaryBtn = (disabled = false) => ({
+    padding: "13px 24px",
+    background: disabled ? "rgba(200,241,53,0.4)" : "#c8f135",
+    color: "#0d0d0d",
     border: "none",
     borderRadius: 10,
     fontSize: 14,
     fontWeight: 700,
-    cursor: "pointer",
+    cursor: disabled ? "not-allowed" : "pointer",
     fontFamily: "'Manrope',sans-serif",
+    width: "100%",
     transition: "opacity 0.15s",
   });
 
+  const STEPS = [
+    "Uploading to Cloudinary",
+    "Extracting frames",
+    "Detecting skills (BLIP)",
+    "Transcribing speech (Whisper)",
+    "Saving to database",
+  ];
+
+  // ── Upload & Analyse ───────────────────────────────────────
   const handleUpload = async () => {
     if (!file) return;
     setUploading(true);
     setStep("uploading");
+    setStepIdx(0);
+
     const data = new FormData();
     data.append("video", file);
+
+    const interval = setInterval(() => {
+      setStepIdx((prev) => (prev < STEPS.length - 2 ? prev + 1 : prev));
+    }, 2500);
+
     try {
-      const res = await axios.post("/api/video/upload", data);
-      const { auto_fill, portfolio } = res.data;
-      setForm({
-        name: auto_fill?.name || "",
-        age: auto_fill?.age || "",
-        gender: auto_fill?.gender || "",
-        email: "",
-        contact: "",
-        experience: auto_fill?.experience || "",
-        pricing: "",
-        skills: portfolio?.skills || [],
+      const res = await api.post("/video/upload", data, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
-      setStep("done");
+      clearInterval(interval);
+      setStepIdx(STEPS.length - 1);
+
+      const { auto_fill = {}, portfolio: p = {} } = res.data;
+
+      // Pre-fill form with ML results — user can edit before saving
+      setForm({
+        name: auto_fill.name || user?.name || "",
+        age: auto_fill.age || "",
+        gender: auto_fill.gender || "",
+        email: auto_fill.email || user?.email || "",
+        contact: auto_fill.contact || "",
+        experience: auto_fill.experience || "",
+        pricing: auto_fill.pricing || "",
+        description: p.description || auto_fill.description || "",
+        skills: p.skills || auto_fill.skills || [],
+        category: p.category || portfolio?.category || "",
+        videoUrl: p.videoUrl || "",
+      });
+
+      setTimeout(() => setStep("done"), 500);
     } catch (err) {
+      clearInterval(interval);
       alert("Upload failed: " + (err.response?.data?.message || err.message));
       setStep("idle");
     } finally {
@@ -91,14 +129,35 @@ export default function UploadVideo() {
     }
   };
 
+  // ── Save to DB ─────────────────────────────────────────────
   const handleSave = async () => {
+    if (!form.category) {
+      alert("Please select your worker category (e.g. Electrician, Cook).");
+      return;
+    }
     setSaving(true);
     try {
-      await axios.put("/api/portfolio/update", form);
+      // POST /portfolios → createOrUpdatePortfolio (upsert)
+      // Returns the full portfolio object directly (not wrapped)
+      await api.post("/portfolios", {
+        name: form.name || undefined,
+        age: form.age ? Number(form.age) : undefined,
+        gender: form.gender || undefined,
+        email: form.email || undefined,
+        contact: form.contact || undefined,
+        experience: form.experience || undefined,
+        pricing: form.pricing || undefined,
+        description: form.description || undefined,
+        skills: form.skills,
+        category: form.category,
+        videoUrl: form.videoUrl || undefined,
+      });
+
+      // Refresh WorkerContext so PortfolioPage shows updated data immediately
       await refreshPortfolio();
-      setSaved(true);
+      setStep("saved");
     } catch (err) {
-      alert("Save failed: " + err.message);
+      alert("Save failed: " + (err.response?.data?.message || err.message));
     } finally {
       setSaving(false);
     }
@@ -112,26 +171,29 @@ export default function UploadVideo() {
       setForm((p) => ({ ...p, skills: [...p.skills, s] }));
     setNewSkill("");
   };
-
-  const STEPS = [
-    "Uploading to Cloudinary",
-    "Extracting frames",
-    "Detecting skills (BLIP)",
-    "Transcribing speech (Whisper)",
-    "Saving to database",
-  ];
-  const [stepIdx] = useState(0);
+  const reset = () => {
+    setStep("idle");
+    setFile(null);
+    setStepIdx(0);
+    setForm(emptyForm);
+  };
 
   return (
-    <div style={{ maxWidth: 600 }}>
+    <div style={{ maxWidth: 620 }}>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg) } }
+        .uv-inp:focus { border-color: #c8f135 !important; box-shadow: 0 0 0 3px rgba(200,241,53,0.1) !important; }
+        .uv-drop:hover { border-color: rgba(200,241,53,0.45) !important; }
+        .uv-cat:hover { border-color: rgba(255,255,255,0.25) !important; }
+      `}</style>
+
       <h2
         style={{
           fontFamily: "'Syne',sans-serif",
           fontSize: 22,
           fontWeight: 700,
           color: "#fff",
-          marginBottom: 6,
-          marginTop: 0,
+          margin: "0 0 6px",
         }}
       >
         Upload Video
@@ -147,10 +209,12 @@ export default function UploadVideo() {
         profile.
       </p>
 
+      {/* ── IDLE ── */}
       {step === "idle" && (
         <div style={card}>
-          <label style={label}>Select video file</label>
+          <label style={lb}>Select video file</label>
           <div
+            className="uv-drop"
             onClick={() => document.getElementById("vid-input").click()}
             style={{
               border: "2px dashed rgba(255,255,255,0.12)",
@@ -161,19 +225,18 @@ export default function UploadVideo() {
               transition: "border-color 0.15s",
               marginBottom: 16,
             }}
-            onMouseOver={(e) =>
-              (e.currentTarget.style.borderColor = "rgba(200,241,53,0.4)")
-            }
-            onMouseOut={(e) =>
-              (e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)")
-            }
           >
             <svg
               viewBox="0 0 24 24"
               fill="none"
               stroke="rgba(255,255,255,0.3)"
               strokeWidth="1.5"
-              style={{ width: 40, height: 40, margin: "0 auto 12px" }}
+              style={{
+                width: 40,
+                height: 40,
+                margin: "0 auto 12px",
+                display: "block",
+              }}
             >
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="17 8 12 3 7 8" />
@@ -197,15 +260,16 @@ export default function UploadVideo() {
             onChange={(e) => setFile(e.target.files[0])}
           />
           <button
-            style={{ ...btn(), opacity: file ? 1 : 0.4, width: "100%" }}
+            style={primaryBtn(!file)}
             disabled={!file}
             onClick={handleUpload}
           >
-            Upload & Analyse
+            Upload &amp; Analyse
           </button>
         </div>
       )}
 
+      {/* ── UPLOADING ── */}
       {step === "uploading" && (
         <div style={card}>
           <div
@@ -233,15 +297,20 @@ export default function UploadVideo() {
                   width: 24,
                   height: 24,
                   borderRadius: "50%",
+                  flexShrink: 0,
                   background:
-                    i <= stepIdx ? "#c8f135" : "rgba(255,255,255,0.08)",
+                    i < stepIdx
+                      ? "#c8f135"
+                      : i === stepIdx
+                        ? "rgba(200,241,53,0.15)"
+                        : "rgba(255,255,255,0.07)",
+                  border: i === stepIdx ? "2px solid #c8f135" : "none",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  flexShrink: 0,
                 }}
               >
-                {i <= stepIdx ? (
+                {i < stepIdx ? (
                   <svg
                     viewBox="0 0 24 24"
                     fill="none"
@@ -257,7 +326,8 @@ export default function UploadVideo() {
                       width: 8,
                       height: 8,
                       borderRadius: "50%",
-                      background: "rgba(255,255,255,0.2)",
+                      background:
+                        i === stepIdx ? "#c8f135" : "rgba(255,255,255,0.2)",
                     }}
                   />
                 )}
@@ -266,11 +336,12 @@ export default function UploadVideo() {
                 style={{
                   fontSize: 13,
                   color: i <= stepIdx ? "#fff" : "rgba(255,255,255,0.3)",
+                  flex: 1,
                 }}
               >
                 {s}
               </span>
-              {i === stepIdx + 1 && (
+              {i === stepIdx && (
                 <div
                   style={{
                     width: 14,
@@ -279,25 +350,31 @@ export default function UploadVideo() {
                     border: "2px solid #c8f135",
                     borderTopColor: "transparent",
                     animation: "spin 0.8s linear infinite",
-                    marginLeft: "auto",
                   }}
                 />
               )}
             </div>
           ))}
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
         </div>
       )}
 
-      {step === "done" && !saved && (
+      {/* ── DONE: Review & Save ── */}
+      {step === "done" && (
         <>
-          <div style={{ ...card, borderColor: "rgba(200,241,53,0.2)" }}>
+          {/* Success banner */}
+          <div
+            style={{
+              ...card,
+              borderColor: "rgba(200,241,53,0.2)",
+              marginBottom: 14,
+            }}
+          >
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 10,
-                marginBottom: 16,
+                marginBottom: 18,
               }}
             >
               <div
@@ -309,6 +386,7 @@ export default function UploadVideo() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  flexShrink: 0,
                 }}
               >
                 <svg
@@ -322,18 +400,65 @@ export default function UploadVideo() {
                 </svg>
               </div>
               <span style={{ fontSize: 14, fontWeight: 600, color: "#c8f135" }}>
-                Video analysed — review and save your profile
+                Video analysed — review the details and save your profile
               </span>
             </div>
 
+            {/* Category picker — REQUIRED */}
+            <label style={lb}>
+              Your Category{" "}
+              <span style={{ color: "#f87171", fontSize: 12 }}>* required</span>
+            </label>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+                marginBottom: 18,
+              }}
+            >
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat}
+                  className="uv-cat"
+                  onClick={() => setForm((p) => ({ ...p, category: cat }))}
+                  style={{
+                    padding: "7px 16px",
+                    borderRadius: 20,
+                    border:
+                      form.category === cat
+                        ? "1.5px solid #c8f135"
+                        : "1.5px solid rgba(255,255,255,0.12)",
+                    background:
+                      form.category === cat
+                        ? "rgba(200,241,53,0.12)"
+                        : "rgba(255,255,255,0.04)",
+                    color:
+                      form.category === cat
+                        ? "#c8f135"
+                        : "rgba(255,255,255,0.5)",
+                    fontFamily: "'Manrope',sans-serif",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    textTransform: "capitalize",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
             {/* Skills */}
-            <label style={label}>
+            <label style={lb}>
               Detected Skills{" "}
               <span
                 style={{
                   color: "rgba(255,255,255,0.3)",
                   textTransform: "none",
                   fontSize: 11,
+                  fontWeight: 400,
                 }}
               >
                 (editable)
@@ -344,7 +469,7 @@ export default function UploadVideo() {
                 display: "flex",
                 flexWrap: "wrap",
                 gap: 8,
-                marginBottom: 16,
+                marginBottom: 4,
               }}
             >
               {form.skills.map((sk) => (
@@ -370,21 +495,22 @@ export default function UploadVideo() {
                       cursor: "pointer",
                       fontSize: 14,
                       lineHeight: 1,
-                      opacity: 0.7,
+                      opacity: 0.6,
                     }}
                   >
                     ×
                   </span>
                 </span>
               ))}
-              <div style={{ display: "flex", gap: 4 }}>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <input
+                  className="uv-inp"
                   value={newSkill}
                   onChange={(e) => setNewSkill(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && addSkill()}
                   placeholder="Add skill…"
                   style={{
-                    ...input,
+                    ...inp,
                     width: 120,
                     padding: "5px 10px",
                     fontSize: 12,
@@ -394,10 +520,14 @@ export default function UploadVideo() {
                 <button
                   onClick={addSkill}
                   style={{
-                    ...btn("rgba(255,255,255,0.1)", "#fff"),
                     padding: "5px 12px",
-                    fontSize: 12,
+                    background: "rgba(255,255,255,0.08)",
+                    color: "#fff",
+                    border: "none",
                     borderRadius: 20,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
                   }}
                 >
                   +
@@ -410,9 +540,21 @@ export default function UploadVideo() {
           <div style={card}>
             <div
               style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: "rgba(255,255,255,0.4)",
+                textTransform: "uppercase",
+                letterSpacing: "0.1em",
+                marginBottom: 16,
+              }}
+            >
+              Profile Details
+            </div>
+            <div
+              style={{
                 display: "grid",
                 gridTemplateColumns: "1fr 1fr",
-                gap: 16,
+                gap: 14,
               }}
             >
               {[
@@ -422,29 +564,32 @@ export default function UploadVideo() {
                 { label: "Contact No.", field: "contact", type: "tel" },
                 { label: "Experience", field: "experience", type: "text" },
                 { label: "Pricing", field: "pricing", type: "text" },
-              ].map(({ label: lb, field, type }) => (
+              ].map(({ label, field, type }) => (
                 <div key={field}>
-                  <label style={label}>{lb}</label>
+                  <label style={lb}>{label}</label>
                   <input
+                    className="uv-inp"
                     type={type}
                     value={form[field]}
                     onChange={(e) =>
                       setForm((p) => ({ ...p, [field]: e.target.value }))
                     }
-                    style={input}
-                    placeholder={lb}
+                    style={inp}
+                    placeholder={label}
                   />
                 </div>
               ))}
             </div>
-            <div style={{ marginTop: 16 }}>
-              <label style={label}>Gender</label>
+
+            <div style={{ marginTop: 14 }}>
+              <label style={lb}>Gender</label>
               <select
+                className="uv-inp"
                 value={form.gender}
                 onChange={(e) =>
                   setForm((p) => ({ ...p, gender: e.target.value }))
                 }
-                style={{ ...input, cursor: "pointer" }}
+                style={{ ...inp, cursor: "pointer" }}
               >
                 <option value="">Select gender</option>
                 <option>Male</option>
@@ -452,30 +597,45 @@ export default function UploadVideo() {
                 <option>Other</option>
               </select>
             </div>
+
+            <div style={{ marginTop: 14 }}>
+              <label style={lb}>Description</label>
+              <textarea
+                className="uv-inp"
+                value={form.description}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, description: e.target.value }))
+                }
+                placeholder="Tell clients about yourself and your work…"
+                rows={3}
+                style={{ ...inp, resize: "vertical", lineHeight: 1.6 }}
+              />
+            </div>
           </div>
 
           <button
-            style={{ ...btn(), width: "100%", padding: "14px" }}
+            style={primaryBtn(saving)}
             onClick={handleSave}
             disabled={saving}
           >
-            {saving ? "Saving…" : "Save Profile"}
+            {saving ? "Saving to database…" : "Save Profile"}
           </button>
         </>
       )}
 
-      {saved && (
+      {/* ── SAVED ── */}
+      {step === "saved" && (
         <div style={{ ...card, textAlign: "center", padding: "48px 24px" }}>
           <div
             style={{
-              width: 56,
-              height: 56,
+              width: 60,
+              height: 60,
               borderRadius: "50%",
               background: "rgba(200,241,53,0.15)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              margin: "0 auto 16px",
+              margin: "0 auto 18px",
             }}
           >
             <svg
@@ -506,15 +666,12 @@ export default function UploadVideo() {
               marginBottom: 24,
             }}
           >
-            Your skills and details have been updated.
+            Your skills and details are now visible to clients. Check your
+            Portfolio tab to see your profile.
           </p>
           <button
-            style={btn()}
-            onClick={() => {
-              setStep("idle");
-              setSaved(false);
-              setFile(null);
-            }}
+            style={{ ...primaryBtn(), width: "auto", padding: "12px 28px" }}
+            onClick={reset}
           >
             Upload Another Video
           </button>
