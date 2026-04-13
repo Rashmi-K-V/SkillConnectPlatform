@@ -1,15 +1,14 @@
-import { useState, useContext, useRef, useEffect } from "react";
+// src/pages/SettingsPage.jsx
+import { useState, useContext, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { LanguageContext } from "../context/LanguageContext.jsx";
+import { AuthContext } from "../context/AuthContext.jsx";
 import api from "../services/api.services.js";
 
-// ── decode role from JWT in localStorage (no extra context needed) ──
 function getRoleFromToken() {
   try {
-    const token = localStorage.getItem("token");
-    if (!token) return null;
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    return payload.role || null;
+    const p = JSON.parse(atob(localStorage.getItem("token").split(".")[1]));
+    return p.role || null;
   } catch {
     return null;
   }
@@ -30,7 +29,6 @@ const TABS = [
   { id: "security", label: "Security", icon: "lock" },
   { id: "language", label: "Language", icon: "globe" },
   { id: "notifications", label: "Notifications", icon: "bell" },
-  { id: "financial", label: "Financial", icon: "rupee" },
 ];
 
 function Icon({ name, size = 16 }) {
@@ -56,7 +54,7 @@ function Icon({ name, size = 16 }) {
         strokeWidth="1.9"
         style={s}
       >
-        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+        <rect x="3" y="11" width="18" height="11" rx="2" />
         <path d="M7 11V7a5 5 0 0 1 10 0v4" />
       </svg>
     ),
@@ -85,30 +83,6 @@ function Icon({ name, size = 16 }) {
         <path d="M13.73 21a2 2 0 0 1-3.46 0" />
       </svg>
     ),
-    rupee: (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.9"
-        style={s}
-      >
-        <line x1="12" y1="1" x2="12" y2="23" />
-        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-      </svg>
-    ),
-    camera: (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.9"
-        style={s}
-      >
-        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-        <circle cx="12" cy="13" r="4" />
-      </svg>
-    ),
     check: (
       <svg
         viewBox="0 0 24 24"
@@ -118,17 +92,6 @@ function Icon({ name, size = 16 }) {
         style={s}
       >
         <polyline points="20 6 9 17 4 12" />
-      </svg>
-    ),
-    chevron: (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        style={s}
-      >
-        <polyline points="9 18 15 12 9 6" />
       </svg>
     ),
     logout: (
@@ -144,7 +107,7 @@ function Icon({ name, size = 16 }) {
         <line x1="21" y1="12" x2="9" y2="12" />
       </svg>
     ),
-    shield: (
+    camera: (
       <svg
         viewBox="0 0 24 24"
         fill="none"
@@ -152,7 +115,8 @@ function Icon({ name, size = 16 }) {
         strokeWidth="1.9"
         style={s}
       >
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+        <circle cx="12" cy="13" r="4" />
       </svg>
     ),
   };
@@ -161,7 +125,25 @@ function Icon({ name, size = 16 }) {
 
 function Toast({ message, type = "success" }) {
   return (
-    <div className={`sp-toast sp-toast-${type}`}>
+    <div
+      style={{
+        position: "fixed",
+        bottom: 28,
+        right: 28,
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "12px 18px",
+        borderRadius: 12,
+        fontSize: 13,
+        fontWeight: 600,
+        zIndex: 999,
+        fontFamily: "'Manrope',sans-serif",
+        background: type === "success" ? "#1a2e1a" : "#2e1a1a",
+        color: type === "success" ? "#4ade80" : "#f87171",
+        border: `1px solid ${type === "success" ? "rgba(74,222,128,0.2)" : "rgba(248,113,113,0.2)"}`,
+      }}
+    >
       {type === "success" && <Icon name="check" size={14} />}
       {message}
     </div>
@@ -169,22 +151,21 @@ function Toast({ message, type = "success" }) {
 }
 
 export default function SettingsPage() {
-  const role = getRoleFromToken(); // "worker" | "client" | null
+  const role = getRoleFromToken();
   const { lang, setLang, t } = useContext(LanguageContext);
+  const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const fileRef = useRef();
 
   const [activeTab, setActiveTab] = useState("profile");
   const [toast, setToast] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  // Profile
   const [profile, setProfile] = useState({ name: "", email: "" });
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarUploaded, setAvatarUploaded] = useState(false);
-
-  // Security
   const [passwords, setPasswords] = useState({
     current: "",
     next: "",
@@ -195,8 +176,6 @@ export default function SettingsPage() {
     next: false,
     confirm: false,
   });
-
-  // Notifications
   const [notifs, setNotifs] = useState({
     jobAlerts: true,
     messages: true,
@@ -204,39 +183,21 @@ export default function SettingsPage() {
     promotions: false,
   });
 
-  // Financial (worker = payout, client = billing)
-  const [financial, setFinancial] = useState({
-    upiId: "",
-    bankName: "",
-    accountNo: "",
-    ifsc: "",
-    cardLast4: "",
-    billingName: "",
-  });
-
-  useEffect(() => {
-    api
-      .get("/auth/me")
-      .then((res) => {
-        setProfile({ name: res.data.name || "", email: res.data.email || "" });
-        if (res.data.avatar) {
-          setAvatarPreview(res.data.avatar);
-          setAvatarUploaded(true);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
   const handleAvatarChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setAvatarFile(file);
-    setAvatarPreview(URL.createObjectURL(file));
+    const f = e.target.files[0];
+    if (!f) return;
+    setAvatarFile(f);
+    setAvatarPreview(URL.createObjectURL(f));
   };
 
   const handleAvatarUpload = async () => {
@@ -262,7 +223,7 @@ export default function SettingsPage() {
       await api.put("/auth/profile", profile);
       showToast("Profile saved!");
     } catch {
-      showToast("Failed to save profile", "error");
+      showToast("Failed to save", "error");
     } finally {
       setSaving(false);
     }
@@ -288,25 +249,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handleFinancialSave = async () => {
-    setSaving(true);
-    try {
-      await api.put("/auth/financial", financial);
-      showToast(
-        role === "worker" ? "Payout details saved!" : "Billing details saved!",
-      );
-    } catch {
-      showToast("Failed to save", "error");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    navigate("/login");
-  };
-
   const initials = profile.name
     ? profile.name
         .split(" ")
@@ -316,317 +258,177 @@ export default function SettingsPage() {
         .toUpperCase()
     : "?";
 
+  const s = {
+    root: {
+      fontFamily: "'Manrope','Segoe UI',sans-serif",
+      minHeight: "100vh",
+      background: "#0d0d0d",
+      display: "flex",
+      flexDirection: "column",
+    },
+    topbar: {
+      height: 56,
+      flexShrink: 0,
+      display: "flex",
+      alignItems: "center",
+      padding: "0 28px",
+      gap: 12,
+      background: "#141414",
+      borderBottom: "1px solid rgba(255,255,255,0.06)",
+    },
+    brand: { display: "flex", alignItems: "center", gap: 9 },
+    brandDot: {
+      width: 30,
+      height: 30,
+      background: "#c8f135",
+      borderRadius: 8,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    brandName: {
+      fontFamily: "'Syne',sans-serif",
+      fontWeight: 700,
+      fontSize: 15,
+      color: "#fff",
+      letterSpacing: "-0.3px",
+    },
+    body: {
+      flex: 1,
+      display: "flex",
+      maxWidth: 920,
+      margin: "0 auto",
+      width: "100%",
+      padding: "32px 24px 60px",
+      gap: 24,
+    },
+    sidenav: {
+      width: 200,
+      flexShrink: 0,
+      display: "flex",
+      flexDirection: "column",
+      gap: 2,
+    },
+    navTitle: {
+      fontSize: 10,
+      fontWeight: 600,
+      textTransform: "uppercase",
+      letterSpacing: "0.12em",
+      color: "rgba(255,255,255,0.2)",
+      padding: "0 12px",
+      marginBottom: 8,
+    },
+    navBtn: (active) => ({
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      padding: "10px 12px",
+      borderRadius: 10,
+      fontFamily: "'Manrope',sans-serif",
+      fontSize: 13.5,
+      fontWeight: 500,
+      color: active ? "#0d0d0d" : "rgba(255,255,255,0.4)",
+      background: active ? "#c8f135" : "none",
+      border: "none",
+      cursor: "pointer",
+      textAlign: "left",
+      width: "100%",
+      transition: "all 0.14s",
+    }),
+    panel: {
+      flex: 1,
+      minWidth: 0,
+      display: "flex",
+      flexDirection: "column",
+      gap: 16,
+    },
+    section: {
+      background: "#141414",
+      border: "1px solid rgba(255,255,255,0.07)",
+      borderRadius: 18,
+      padding: 24,
+    },
+    sTitle: {
+      fontFamily: "'Syne',sans-serif",
+      fontSize: 15,
+      fontWeight: 700,
+      color: "#fff",
+      marginBottom: 4,
+    },
+    sSub: {
+      fontSize: 12.5,
+      color: "rgba(255,255,255,0.3)",
+      marginBottom: 20,
+      lineHeight: 1.5,
+    },
+    lb: {
+      display: "block",
+      fontSize: 11.5,
+      fontWeight: 600,
+      textTransform: "uppercase",
+      letterSpacing: "0.09em",
+      color: "rgba(255,255,255,0.32)",
+      marginBottom: 7,
+    },
+    inp: {
+      width: "100%",
+      background: "#1e1e1e",
+      border: "1px solid rgba(255,255,255,0.09)",
+      borderRadius: 12,
+      padding: "12px 14px",
+      fontSize: 14,
+      color: "#fff",
+      fontFamily: "'Manrope',sans-serif",
+      outline: "none",
+      transition: "border-color 0.18s,box-shadow 0.18s",
+      boxSizing: "border-box",
+    },
+    saveBtn: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 8,
+      background: "#c8f135",
+      color: "#0d0d0d",
+      fontFamily: "'Manrope',sans-serif",
+      fontSize: 13.5,
+      fontWeight: 700,
+      border: "none",
+      borderRadius: 11,
+      padding: "12px 24px",
+      cursor: "pointer",
+      marginTop: 4,
+      transition: "opacity 0.15s",
+    },
+  };
+
   return (
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Manrope:wght@400;500;600&display=swap');
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-        .sp-root {
-          font-family: 'Manrope', 'Segoe UI', sans-serif;
-          min-height: 100vh;
-          background: #0d0d0d;
-          display: flex; flex-direction: column;
-        }
-
-        /* TOPBAR */
-        .sp-topbar {
-          height: 56px; flex-shrink: 0;
-          display: flex; align-items: center;
-          padding: 0 28px; gap: 12px;
-          background: #141414;
-          border-bottom: 1px solid rgba(255,255,255,0.06);
-        }
-        .sp-brand { display: flex; align-items: center; gap: 9px; }
-        .sp-brand-dot {
-          width: 30px; height: 30px; background: #c8f135;
-          border-radius: 8px; display: flex; align-items: center; justify-content: center;
-        }
-        .sp-brand-name {
-          font-family: 'Syne', sans-serif;
-          font-weight: 700; font-size: 15px; color: #fff; letter-spacing: -0.3px;
-        }
-        .sp-topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-        .sp-role-badge {
-          font-size: 11px; font-weight: 600; text-transform: capitalize;
-          padding: 4px 11px; border-radius: 20px;
-          background: rgba(200,241,53,0.1); color: #c8f135;
-          border: 1px solid rgba(200,241,53,0.2);
-        }
-        .sp-logout-btn {
-          display: flex; align-items: center; gap: 6px;
-          background: rgba(255,255,255,0.05);
-          border: 1px solid rgba(255,255,255,0.08);
-          color: rgba(255,255,255,0.45);
-          font-family: 'Manrope', sans-serif;
-          font-size: 12.5px; font-weight: 600;
-          border-radius: 9px; padding: 7px 13px;
-          cursor: pointer; transition: all 0.15s;
-        }
-        .sp-logout-btn:hover { background: rgba(239,68,68,0.1); color: #f87171; border-color: rgba(239,68,68,0.2); }
-
-        /* BODY */
-        .sp-body {
-          flex: 1; display: flex;
-          max-width: 920px; margin: 0 auto;
-          width: 100%; padding: 32px 24px 60px;
-          gap: 24px;
-        }
-
-        /* SIDEBAR NAV */
-        .sp-sidenav {
-          width: 200px; flex-shrink: 0;
-          display: flex; flex-direction: column; gap: 2px;
-        }
-        .sp-sidenav-title {
-          font-size: 10px; font-weight: 600; text-transform: uppercase;
-          letter-spacing: 0.12em; color: rgba(255,255,255,0.2);
-          padding: 0 12px; margin-bottom: 8px;
-        }
-        .sp-nav-btn {
-          display: flex; align-items: center; gap: 10px;
-          padding: 10px 12px; border-radius: 10px;
-          font-family: 'Manrope', sans-serif;
-          font-size: 13.5px; font-weight: 500;
-          color: rgba(255,255,255,0.4);
-          background: none; border: none; cursor: pointer;
-          text-align: left; width: 100%;
-          transition: all 0.14s ease;
-        }
-        .sp-nav-btn:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.8); }
-        .sp-nav-btn.active { background: #c8f135; color: #0d0d0d; font-weight: 600; }
-        .sp-nav-btn.active svg { stroke: #0d0d0d; }
-
-        /* CONTENT PANEL */
-        .sp-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
-
-        .sp-section {
-          background: #141414;
-          border: 1px solid rgba(255,255,255,0.07);
-          border-radius: 18px; padding: 24px;
-        }
-
-        .sp-section-title {
-          font-family: 'Syne', sans-serif;
-          font-size: 15px; font-weight: 700; color: #fff;
-          margin-bottom: 4px;
-        }
-        .sp-section-sub {
-          font-size: 12.5px; color: rgba(255,255,255,0.3);
-          margin-bottom: 20px; line-height: 1.5;
-        }
-
-        /* AVATAR */
-        .sp-avatar-row {
-          display: flex; align-items: center; gap: 18px;
-          margin-bottom: 20px;
-          padding-bottom: 20px;
-          border-bottom: 1px solid rgba(255,255,255,0.06);
-        }
-        .sp-avatar-wrap { position: relative; cursor: pointer; }
-        .sp-avatar-img {
-          width: 72px; height: 72px; border-radius: 50%;
-          object-fit: cover;
-          border: 2px solid rgba(255,255,255,0.1);
-        }
-        .sp-avatar-placeholder {
-          width: 72px; height: 72px; border-radius: 50%;
-          background: linear-gradient(135deg,#f97316,#ec4899);
-          display: flex; align-items: center; justify-content: center;
-          font-size: 22px; font-weight: 700; color: #fff;
-          border: 2px solid rgba(255,255,255,0.1);
-        }
-        .sp-avatar-overlay {
-          position: absolute; inset: 0; border-radius: 50%;
-          background: rgba(0,0,0,0.55);
-          display: flex; align-items: center; justify-content: center;
-          opacity: 0; transition: opacity 0.2s;
-          color: #fff;
-        }
-        .sp-avatar-wrap:hover .sp-avatar-overlay { opacity: 1; }
-
-        .sp-avatar-info { flex: 1; }
-        .sp-avatar-name {
-          font-family: 'Syne', sans-serif;
-          font-size: 17px; font-weight: 700; color: #fff; margin-bottom: 3px;
-        }
-        .sp-avatar-role { font-size: 12px; color: rgba(255,255,255,0.3); margin-bottom: 10px; }
-
-        .sp-upload-required {
-          display: inline-flex; align-items: center; gap: 6px;
-          background: rgba(251,191,36,0.1); color: #fbbf24;
-          border: 1px solid rgba(251,191,36,0.2);
-          border-radius: 8px; padding: 5px 11px;
-          font-size: 11.5px; font-weight: 600;
-        }
-        .sp-upload-verified {
-          display: inline-flex; align-items: center; gap: 6px;
-          background: rgba(74,222,128,0.1); color: #4ade80;
-          border: 1px solid rgba(74,222,128,0.2);
-          border-radius: 8px; padding: 5px 11px;
-          font-size: 11.5px; font-weight: 600;
-        }
-
-        .sp-upload-btn {
-          display: inline-flex; align-items: center; gap: 7px;
-          background: #1e1e1e; border: 1px solid rgba(255,255,255,0.1);
-          color: rgba(255,255,255,0.7);
-          font-family: 'Manrope', sans-serif; font-size: 12.5px; font-weight: 600;
-          border-radius: 9px; padding: 8px 14px;
-          cursor: pointer; transition: all 0.15s; margin-right: 8px;
-        }
-        .sp-upload-btn:hover { border-color: #c8f135; color: #c8f135; }
-
-        /* FIELD */
-        .sp-field { margin-bottom: 14px; }
-        .sp-label {
-          display: block; font-size: 11px; font-weight: 600;
-          text-transform: uppercase; letter-spacing: 0.09em;
-          color: rgba(255,255,255,0.28); margin-bottom: 7px;
-        }
-        .sp-input {
-          width: 100%; background: #1e1e1e;
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 11px; padding: 12px 14px;
-          font-size: 13.5px; color: #fff;
-          font-family: 'Manrope', sans-serif;
-          outline: none; transition: border-color 0.18s, box-shadow 0.18s;
-        }
-        .sp-input::placeholder { color: rgba(255,255,255,0.18); }
-        .sp-input:focus { border-color: #c8f135; box-shadow: 0 0 0 3px rgba(200,241,53,0.09); }
-
-        .sp-input-wrap { position: relative; display: flex; align-items: center; }
-        .sp-input-wrap .sp-input { padding-right: 44px; }
-        .sp-eye {
-          position: absolute; right: 13px;
-          background: none; border: none; cursor: pointer;
-          color: rgba(255,255,255,0.28); display: flex; align-items: center;
-          transition: color 0.15s; padding: 0;
-        }
-        .sp-eye:hover { color: rgba(255,255,255,0.7); }
-
-        .sp-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-
-        /* SAVE BTN */
-        .sp-save-btn {
-          display: inline-flex; align-items: center; gap: 8px;
-          background: #c8f135; color: #0d0d0d;
-          font-family: 'Manrope', sans-serif;
-          font-size: 13.5px; font-weight: 700;
-          border: none; border-radius: 11px;
-          padding: 12px 24px; cursor: pointer; margin-top: 4px;
-          transition: opacity 0.15s, transform 0.15s;
-        }
-        .sp-save-btn:hover:not(:disabled) { opacity: 0.88; transform: scale(0.99); }
-        .sp-save-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-
-        .sp-spinner {
-          width: 14px; height: 14px;
-          border: 2px solid rgba(0,0,0,0.18);
-          border-top-color: #0d0d0d;
-          border-radius: 50%;
-          animation: sp-spin 0.7s linear infinite;
-        }
-        @keyframes sp-spin { to { transform: rotate(360deg); } }
-
-        /* LANGUAGE GRID */
-        .sp-lang-grid {
-          display: grid; grid-template-columns: repeat(3,1fr); gap: 8px;
-        }
-        .sp-lang-pill {
-          display: flex; flex-direction: column;
-          padding: 12px 14px; border-radius: 12px;
-          background: #1e1e1e;
-          border: 1.5px solid rgba(255,255,255,0.07);
-          cursor: pointer; transition: all 0.16s;
-          font-family: 'Manrope', sans-serif;
-        }
-        .sp-lang-pill:hover { border-color: rgba(255,255,255,0.2); }
-        .sp-lang-pill.active { border-color: #c8f135; background: rgba(200,241,53,0.07); }
-        .sp-lang-native { font-size: 14px; font-weight: 600; color: #fff; }
-        .sp-lang-label { font-size: 11px; color: rgba(255,255,255,0.3); margin-top: 2px; }
-        .sp-lang-pill.active .sp-lang-native { color: #c8f135; }
-        .sp-lang-pill.active .sp-lang-label { color: rgba(200,241,53,0.45); }
-
-        /* TOGGLE */
-        .sp-toggle-row {
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 14px 0;
-          border-bottom: 1px solid rgba(255,255,255,0.05);
-        }
-        .sp-toggle-row:last-child { border-bottom: none; padding-bottom: 0; }
-        .sp-toggle-label { font-size: 13.5px; font-weight: 500; color: #fff; margin-bottom: 2px; }
-        .sp-toggle-sub { font-size: 12px; color: rgba(255,255,255,0.28); }
-        .sp-toggle {
-          width: 44px; height: 24px; border-radius: 12px;
-          border: none; cursor: pointer; position: relative;
-          flex-shrink: 0; transition: background 0.2s;
-        }
-        .sp-toggle.on { background: #c8f135; }
-        .sp-toggle.off { background: rgba(255,255,255,0.1); }
-        .sp-toggle-knob {
-          position: absolute; top: 3px;
-          width: 18px; height: 18px; border-radius: 50%;
-          background: #fff; transition: left 0.2s;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-        }
-        .sp-toggle.on .sp-toggle-knob { left: 23px; }
-        .sp-toggle.off .sp-toggle-knob { left: 3px; }
-
-        /* TOAST */
-        .sp-toast {
-          position: fixed; bottom: 28px; right: 28px;
-          display: flex; align-items: center; gap: 8px;
-          padding: 12px 18px; border-radius: 12px;
-          font-size: 13px; font-weight: 600;
-          z-index: 999; animation: sp-slidein 0.3s ease;
-          font-family: 'Manrope', sans-serif;
-        }
-        .sp-toast-success { background: #1a2e1a; color: #4ade80; border: 1px solid rgba(74,222,128,0.2); }
-        .sp-toast-error   { background: #2e1a1a; color: #f87171; border: 1px solid rgba(248,113,113,0.2); }
-        @keyframes sp-slidein {
-          from { opacity: 0; transform: translateY(10px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-
-        /* MOBILE */
-        .sp-mobile-tabs {
-          display: none;
-          overflow-x: auto; gap: 6px;
-          padding: 12px 16px;
-          border-bottom: 1px solid rgba(255,255,255,0.06);
-          background: #141414;
-          scrollbar-width: none;
-        }
-        .sp-mobile-tabs::-webkit-scrollbar { display: none; }
-        .sp-mobile-tab {
-          display: flex; align-items: center; gap: 6px;
-          padding: 7px 14px; border-radius: 20px;
-          background: #1e1e1e; border: 1px solid rgba(255,255,255,0.07);
-          color: rgba(255,255,255,0.45);
-          font-family: 'Manrope', sans-serif;
-          font-size: 12.5px; font-weight: 600;
-          white-space: nowrap; cursor: pointer; flex-shrink: 0;
-          transition: all 0.15s;
-        }
-        .sp-mobile-tab.active { background: #c8f135; color: #0d0d0d; border-color: #c8f135; }
-        .sp-mobile-tab.active svg { stroke: #0d0d0d; }
-
-        @media (max-width: 700px) {
-          .sp-sidenav { display: none; }
-          .sp-mobile-tabs { display: flex; }
-          .sp-body { padding: 20px 16px 48px; }
-          .sp-topbar { padding: 0 16px; }
-          .sp-row-2 { grid-template-columns: 1fr; }
-          .sp-lang-grid { grid-template-columns: repeat(2,1fr); }
+        .sp-navbtn:hover{background:rgba(255,255,255,0.05)!important;color:rgba(255,255,255,0.8)!important;}
+        .sp-navbtn.active:hover{background:#c8f135!important;}
+        .sp-inp:focus{border-color:#c8f135!important;box-shadow:0 0 0 3px rgba(200,241,53,0.1)!important;}
+        .sp-lang-pill:hover{border-color:rgba(255,255,255,0.2)!important;}
+        .sp-mob-tab{display:none;overflow-x:auto;gap:6px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.06);background:#141414;scrollbar-width:none;}
+        .sp-mob-tab-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:20px;background:#1e1e1e;border:1px solid rgba(255,255,255,0.07);color:rgba(255,255,255,0.45);font-family:'Manrope',sans-serif;font-size:12.5px;font-weight:600;white-space:nowrap;cursor:pointer;flex-shrink:0;transition:all 0.15s;}
+        .sp-mob-tab-btn.active{background:#c8f135;color:#0d0d0d;border-color:#c8f135;}
+        .sp-logout-btn:hover{background:rgba(239,68,68,0.1)!important;color:#f87171!important;border-color:rgba(239,68,68,0.2)!important;}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @media(max-width:700px){
+          .sp-sidenav{display:none!important;}
+          .sp-mob-tab{display:flex!important;}
+          .sp-body{padding:20px 16px 48px!important;}
+          .sp-topbar{padding:0 16px!important;}
+          .sp-row2{grid-template-columns:1fr!important;}
+          .sp-lang-grid{grid-template-columns:repeat(2,1fr)!important;}
         }
       `}</style>
 
-      <div className="sp-root">
+      <div style={s.root}>
         {/* Topbar */}
-        <header className="sp-topbar">
-          <div className="sp-brand">
-            <div className="sp-brand-dot">
+        <header className="sp-topbar" style={s.topbar}>
+          <div style={s.brand}>
+            <div style={s.brandDot}>
               <svg
                 viewBox="0 0 24 24"
                 fill="#0d0d0d"
@@ -635,22 +437,149 @@ export default function SettingsPage() {
                 <polygon points="5,3 19,12 5,21" />
               </svg>
             </div>
-            <span className="sp-brand-name">WorkerHub</span>
+            <span style={s.brandName}>SkillConnect</span>
           </div>
-          <div className="sp-topbar-right">
-            {role && <span className="sp-role-badge">{role}</span>}
-            <button className="sp-logout-btn" onClick={handleLogout}>
+          <div
+            style={{
+              marginLeft: "auto",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
+            {role && (
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  textTransform: "capitalize",
+                  padding: "4px 11px",
+                  borderRadius: 20,
+                  background: "rgba(200,241,53,0.1)",
+                  color: "#c8f135",
+                  border: "1px solid rgba(200,241,53,0.2)",
+                }}
+              >
+                {role}
+              </span>
+            )}
+            {/* ✅ LOGOUT BUTTON */}
+            <button
+              className="sp-logout-btn"
+              onClick={() => setShowLogoutConfirm(true)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                color: "rgba(255,255,255,0.45)",
+                fontFamily: "'Manrope',sans-serif",
+                fontSize: 12.5,
+                fontWeight: 600,
+                borderRadius: 9,
+                padding: "7px 13px",
+                cursor: "pointer",
+                transition: "all 0.15s",
+              }}
+            >
               <Icon name="logout" size={14} /> Logout
             </button>
           </div>
         </header>
 
+        {/* Logout confirmation */}
+        {showLogoutConfirm && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.75)",
+              zIndex: 200,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 16,
+            }}
+          >
+            <div
+              style={{
+                background: "#1a1a1a",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 20,
+                padding: 28,
+                width: "100%",
+                maxWidth: 360,
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: 32, marginBottom: 12 }}>👋</div>
+              <div
+                style={{
+                  fontFamily: "'Syne',sans-serif",
+                  fontSize: 17,
+                  fontWeight: 700,
+                  color: "#fff",
+                  marginBottom: 6,
+                }}
+              >
+                Log out?
+              </div>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "rgba(255,255,255,0.4)",
+                  marginBottom: 24,
+                }}
+              >
+                You'll be redirected to the login page.
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button
+                  onClick={() => setShowLogoutConfirm(false)}
+                  style={{
+                    flex: 1,
+                    padding: "11px",
+                    background: "rgba(255,255,255,0.07)",
+                    border: "none",
+                    borderRadius: 10,
+                    color: "rgba(255,255,255,0.5)",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontFamily: "'Manrope',sans-serif",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    flex: 2,
+                    padding: "11px",
+                    background: "#f87171",
+                    border: "none",
+                    borderRadius: 10,
+                    color: "#fff",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    fontFamily: "'Manrope',sans-serif",
+                  }}
+                >
+                  Yes, Log Out
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Mobile tabs */}
-        <div className="sp-mobile-tabs">
-          {TABS.filter((tab) => tab.id !== "financial" || role).map((tab) => (
+        <div className="sp-mob-tab">
+          {TABS.map((tab) => (
             <button
               key={tab.id}
-              className={`sp-mobile-tab ${activeTab === tab.id ? "active" : ""}`}
+              className={`sp-mob-tab-btn ${activeTab === tab.id ? "active" : ""}`}
               onClick={() => setActiveTab(tab.id)}
             >
               <Icon name={tab.icon} size={13} />
@@ -659,14 +588,15 @@ export default function SettingsPage() {
           ))}
         </div>
 
-        <div className="sp-body">
+        <div className="sp-body" style={s.body}>
           {/* Sidebar nav */}
-          <nav className="sp-sidenav">
-            <div className="sp-sidenav-title">Settings</div>
-            {TABS.filter((tab) => tab.id !== "financial" || role).map((tab) => (
+          <nav className="sp-sidenav" style={s.sidenav}>
+            <div style={s.navTitle}>Settings</div>
+            {TABS.map((tab) => (
               <button
                 key={tab.id}
-                className={`sp-nav-btn ${activeTab === tab.id ? "active" : ""}`}
+                className={`sp-navbtn ${activeTab === tab.id ? "active" : ""}`}
+                style={s.navBtn(activeTab === tab.id)}
                 onClick={() => setActiveTab(tab.id)}
               >
                 <Icon name={tab.icon} size={16} />
@@ -675,60 +605,122 @@ export default function SettingsPage() {
             ))}
           </nav>
 
-          {/* Panel */}
-          <div className="sp-panel">
-            {/* ── PROFILE TAB ── */}
+          <div style={s.panel}>
+            {/* PROFILE */}
             {activeTab === "profile" && (
               <>
-                <div className="sp-section">
-                  <div className="sp-section-title">Profile Photo</div>
-                  <div className="sp-section-sub">
-                    A profile photo is{" "}
+                <div style={s.section}>
+                  <div style={s.sTitle}>Profile Photo</div>
+                  <div style={{ ...s.sSub, color: "rgba(255,255,255,0.3)" }}>
+                    A photo is{" "}
                     <strong style={{ color: "#fbbf24" }}>required</strong> for
-                    identity verification. Clients and workers must upload a
-                    clear photo so others can identify them.
+                    identity verification.
                   </div>
-
-                  <div className="sp-avatar-row">
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 18,
+                      marginBottom: 20,
+                      paddingBottom: 20,
+                      borderBottom: "1px solid rgba(255,255,255,0.06)",
+                    }}
+                  >
                     <div
-                      className="sp-avatar-wrap"
+                      style={{
+                        width: 72,
+                        height: 72,
+                        borderRadius: "50%",
+                        background: avatarPreview
+                          ? "transparent"
+                          : "linear-gradient(135deg,#f97316,#ec4899)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 22,
+                        fontWeight: 700,
+                        color: "#fff",
+                        cursor: "pointer",
+                        border: "2px solid rgba(255,255,255,0.1)",
+                        overflow: "hidden",
+                        flexShrink: 0,
+                      }}
                       onClick={() => fileRef.current.click()}
                     >
                       {avatarPreview ? (
                         <img
                           src={avatarPreview}
-                          alt="avatar"
-                          className="sp-avatar-img"
+                          alt=""
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                          }}
                         />
                       ) : (
-                        <div className="sp-avatar-placeholder">{initials}</div>
+                        initials
                       )}
-                      <div className="sp-avatar-overlay">
-                        <Icon name="camera" size={20} />
-                      </div>
                     </div>
-                    <div className="sp-avatar-info">
-                      <div className="sp-avatar-name">
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 17,
+                          fontWeight: 700,
+                          color: "#fff",
+                          marginBottom: 3,
+                          fontFamily: "'Syne',sans-serif",
+                        }}
+                      >
                         {profile.name || "Your Name"}
                       </div>
                       <div
-                        className="sp-avatar-role"
-                        style={{ textTransform: "capitalize" }}
+                        style={{
+                          fontSize: 11,
+                          color: "rgba(255,255,255,0.32)",
+                          textTransform: "capitalize",
+                          marginBottom: 8,
+                        }}
                       >
                         {role || "User"}
                       </div>
                       {avatarUploaded ? (
-                        <div className="sp-upload-verified">
-                          <Icon name="check" size={12} /> Photo verified
+                        <div
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            background: "rgba(74,222,128,0.1)",
+                            color: "#4ade80",
+                            border: "1px solid rgba(74,222,128,0.2)",
+                            borderRadius: 8,
+                            padding: "4px 10px",
+                            fontSize: 11.5,
+                            fontWeight: 600,
+                          }}
+                        >
+                          <Icon name="check" size={12} />
+                          Verified
                         </div>
                       ) : (
-                        <div className="sp-upload-required">
-                          ⚠ Photo required for verification
+                        <div
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            background: "rgba(251,191,36,0.1)",
+                            color: "#fbbf24",
+                            border: "1px solid rgba(251,191,36,0.2)",
+                            borderRadius: 8,
+                            padding: "4px 10px",
+                            fontSize: 11.5,
+                            fontWeight: 600,
+                          }}
+                        >
+                          ⚠ Photo required
                         </div>
                       )}
                     </div>
                   </div>
-
                   <input
                     ref={fileRef}
                     type="file"
@@ -737,75 +729,120 @@ export default function SettingsPage() {
                     onChange={handleAvatarChange}
                   />
                   <button
-                    className="sp-upload-btn"
                     onClick={() => fileRef.current.click()}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 7,
+                      background: "#1e1e1e",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      color: "rgba(255,255,255,0.7)",
+                      fontFamily: "'Manrope',sans-serif",
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      borderRadius: 9,
+                      padding: "8px 14px",
+                      cursor: "pointer",
+                      marginRight: 8,
+                    }}
                   >
                     <Icon name="camera" size={14} /> Choose photo
                   </button>
                   {avatarFile && (
                     <button
-                      className="sp-save-btn"
-                      style={{ marginTop: 0 }}
                       onClick={handleAvatarUpload}
                       disabled={saving}
+                      style={{
+                        ...s.saveBtn,
+                        marginTop: 0,
+                        padding: "8px 16px",
+                        fontSize: 12.5,
+                      }}
                     >
                       {saving ? (
                         <>
-                          <div className="sp-spinner" /> Uploading…
+                          <div
+                            style={{
+                              width: 13,
+                              height: 13,
+                              borderRadius: "50%",
+                              border: "2px solid rgba(0,0,0,0.2)",
+                              borderTopColor: "#0d0d0d",
+                              animation: "spin 0.7s linear infinite",
+                            }}
+                          />
+                          Uploading…
                         </>
                       ) : (
                         <>
-                          <Icon name="check" size={14} /> Upload photo
+                          <Icon name="check" size={13} />
+                          Upload
                         </>
                       )}
                     </button>
                   )}
                 </div>
 
-                <div className="sp-section">
-                  <div className="sp-section-title">Personal Info</div>
-                  <div className="sp-section-sub">
-                    Update your name and email address.
-                  </div>
-
-                  <div className="sp-row-2">
-                    <div className="sp-field">
-                      <label className="sp-label">Full Name</label>
+                <div style={s.section}>
+                  <div style={s.sTitle}>Personal Info</div>
+                  <div style={s.sSub}>Update your name and email.</div>
+                  <div
+                    className="sp-row2"
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 12,
+                    }}
+                  >
+                    <div>
+                      <label style={s.lb}>Full Name</label>
                       <input
-                        className="sp-input"
-                        placeholder="Your name"
+                        className="sp-inp"
+                        style={s.inp}
                         value={profile.name}
                         onChange={(e) =>
                           setProfile({ ...profile, name: e.target.value })
                         }
+                        placeholder="Your name"
                       />
                     </div>
-                    <div className="sp-field">
-                      <label className="sp-label">Email</label>
+                    <div>
+                      <label style={s.lb}>Email</label>
                       <input
-                        className="sp-input"
+                        className="sp-inp"
+                        style={s.inp}
                         type="email"
-                        placeholder="you@email.com"
                         value={profile.email}
                         onChange={(e) =>
                           setProfile({ ...profile, email: e.target.value })
                         }
+                        placeholder="you@email.com"
                       />
                     </div>
                   </div>
-
                   <button
-                    className="sp-save-btn"
                     onClick={handleProfileSave}
                     disabled={saving}
+                    style={s.saveBtn}
                   >
                     {saving ? (
                       <>
-                        <div className="sp-spinner" /> Saving…
+                        <div
+                          style={{
+                            width: 14,
+                            height: 14,
+                            borderRadius: "50%",
+                            border: "2px solid rgba(0,0,0,0.2)",
+                            borderTopColor: "#0d0d0d",
+                            animation: "spin 0.7s linear infinite",
+                          }}
+                        />
+                        Saving…
                       </>
                     ) : (
                       <>
-                        <Icon name="check" size={14} /> Save changes
+                        <Icon name="check" size={14} />
+                        Save changes
                       </>
                     )}
                   </button>
@@ -813,26 +850,32 @@ export default function SettingsPage() {
               </>
             )}
 
-            {/* ── SECURITY TAB ── */}
+            {/* SECURITY */}
             {activeTab === "security" && (
-              <div className="sp-section">
-                <div className="sp-section-title">Change Password</div>
-                <div className="sp-section-sub">
+              <div style={s.section}>
+                <div style={s.sTitle}>Change Password</div>
+                <div style={s.sSub}>
                   Use a strong password you don't use elsewhere.
                 </div>
-
                 {["current", "next", "confirm"].map((key) => (
-                  <div className="sp-field" key={key}>
-                    <label className="sp-label">
+                  <div key={key} style={{ marginBottom: 14 }}>
+                    <label style={s.lb}>
                       {key === "current"
                         ? "Current Password"
                         : key === "next"
                           ? "New Password"
                           : "Confirm New Password"}
                     </label>
-                    <div className="sp-input-wrap">
+                    <div
+                      style={{
+                        position: "relative",
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                    >
                       <input
-                        className="sp-input"
+                        className="sp-inp"
+                        style={{ ...s.inp, paddingRight: 44 }}
                         type={showPw[key] ? "text" : "password"}
                         placeholder="••••••••"
                         value={passwords[key]}
@@ -841,11 +884,21 @@ export default function SettingsPage() {
                         }
                       />
                       <button
-                        className="sp-eye"
                         onClick={() =>
                           setShowPw({ ...showPw, [key]: !showPw[key] })
                         }
                         tabIndex={-1}
+                        style={{
+                          position: "absolute",
+                          right: 13,
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "rgba(255,255,255,0.3)",
+                          display: "flex",
+                          alignItems: "center",
+                          padding: 0,
+                        }}
                       >
                         {showPw[key] ? (
                           <svg
@@ -875,72 +928,114 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 ))}
-
                 <button
-                  className="sp-save-btn"
                   onClick={handlePasswordSave}
                   disabled={saving}
+                  style={s.saveBtn}
                 >
                   {saving ? (
                     <>
-                      <div className="sp-spinner" /> Updating…
+                      <div
+                        style={{
+                          width: 14,
+                          height: 14,
+                          borderRadius: "50%",
+                          border: "2px solid rgba(0,0,0,0.2)",
+                          borderTopColor: "#0d0d0d",
+                          animation: "spin 0.7s linear infinite",
+                        }}
+                      />
+                      Updating…
                     </>
                   ) : (
                     <>
-                      <Icon name="shield" size={14} /> Update password
+                      <Icon name="lock" size={14} />
+                      Update password
                     </>
                   )}
                 </button>
               </div>
             )}
 
-            {/* ── LANGUAGE TAB ── */}
+            {/* LANGUAGE */}
             {activeTab === "language" && (
-              <div className="sp-section">
-                <div className="sp-section-title">Language</div>
-                <div className="sp-section-sub">
-                  Choose the language for the app interface.
+              <div style={s.section}>
+                <div style={s.sTitle}>Language</div>
+                <div style={s.sSub}>
+                  Choose the interface language. Worker messages will be
+                  translated to this language.
                 </div>
-
-                <div className="sp-lang-grid">
+                <div
+                  className="sp-lang-grid"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3,1fr)",
+                    gap: 8,
+                  }}
+                >
                   {LANGUAGES.map((l) => (
                     <button
                       key={l.code}
-                      className={`sp-lang-pill ${lang === l.code ? "active" : ""}`}
+                      className="sp-lang-pill"
                       onClick={() => {
                         setLang(l.code);
                         showToast(`Language set to ${l.label}`);
                       }}
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        padding: "12px 14px",
+                        borderRadius: 12,
+                        background: "#1e1e1e",
+                        border: `1.5px solid ${lang === l.code ? "#c8f135" : "rgba(255,255,255,0.07)"}`,
+                        cursor: "pointer",
+                        transition: "all 0.16s",
+                        fontFamily: "'Manrope',sans-serif",
+                        textAlign: "left",
+                      }}
                     >
-                      <span className="sp-lang-native">{l.native}</span>
-                      <span className="sp-lang-label">{l.label}</span>
+                      <span
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 600,
+                          color: lang === l.code ? "#c8f135" : "#fff",
+                        }}
+                      >
+                        {l.native}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "rgba(255,255,255,0.3)",
+                          marginTop: 2,
+                        }}
+                      >
+                        {l.label}
+                      </span>
                     </button>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* ── NOTIFICATIONS TAB ── */}
+            {/* NOTIFICATIONS */}
             {activeTab === "notifications" && (
-              <div className="sp-section">
-                <div className="sp-section-title">Notifications</div>
-                <div className="sp-section-sub">
-                  Manage what alerts you receive.
-                </div>
-
+              <div style={s.section}>
+                <div style={s.sTitle}>Notifications</div>
+                <div style={s.sSub}>Manage what alerts you receive.</div>
                 {[
                   {
                     key: "jobAlerts",
                     label: "Job Alerts",
                     sub:
                       role === "worker"
-                        ? "New job requests matching your skills"
-                        : "Updates on your service bookings",
+                        ? "New job requests"
+                        : "Updates on your bookings",
                   },
                   {
                     key: "messages",
                     label: "Messages",
-                    sub: "New messages from clients or workers",
+                    sub: "New chat messages",
                   },
                   {
                     key: "payments",
@@ -950,178 +1045,73 @@ export default function SettingsPage() {
                   {
                     key: "promotions",
                     label: "Promotions",
-                    sub: "Tips, offers and platform updates",
+                    sub: "Tips and platform updates",
                   },
                 ].map(({ key, label, sub }) => (
-                  <div className="sp-toggle-row" key={key}>
+                  <div
+                    key={key}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "14px 0",
+                      borderBottom: "1px solid rgba(255,255,255,0.05)",
+                    }}
+                  >
                     <div>
-                      <div className="sp-toggle-label">{label}</div>
-                      <div className="sp-toggle-sub">{sub}</div>
+                      <div
+                        style={{
+                          fontSize: 13.5,
+                          fontWeight: 500,
+                          color: "#fff",
+                          marginBottom: 2,
+                        }}
+                      >
+                        {label}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "rgba(255,255,255,0.28)",
+                        }}
+                      >
+                        {sub}
+                      </div>
                     </div>
                     <button
-                      className={`sp-toggle ${notifs[key] ? "on" : "off"}`}
                       onClick={() =>
                         setNotifs({ ...notifs, [key]: !notifs[key] })
                       }
+                      style={{
+                        width: 44,
+                        height: 24,
+                        borderRadius: 12,
+                        border: "none",
+                        cursor: "pointer",
+                        position: "relative",
+                        flexShrink: 0,
+                        background: notifs[key]
+                          ? "#c8f135"
+                          : "rgba(255,255,255,0.1)",
+                        transition: "background 0.2s",
+                      }}
                     >
-                      <div className="sp-toggle-knob" />
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: 3,
+                          width: 18,
+                          height: 18,
+                          borderRadius: "50%",
+                          background: "#fff",
+                          transition: "left 0.2s",
+                          boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+                          left: notifs[key] ? 23 : 3,
+                        }}
+                      />
                     </button>
                   </div>
                 ))}
-              </div>
-            )}
-
-            {/* ── FINANCIAL TAB ── */}
-            {activeTab === "financial" && role === "worker" && (
-              <div className="sp-section">
-                <div className="sp-section-title">Payout Details</div>
-                <div className="sp-section-sub">
-                  Enter your bank or UPI details to receive payments.
-                </div>
-
-                <div className="sp-field">
-                  <label className="sp-label">UPI ID</label>
-                  <input
-                    className="sp-input"
-                    placeholder="yourname@upi"
-                    value={financial.upiId}
-                    onChange={(e) =>
-                      setFinancial({ ...financial, upiId: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div
-                  style={{
-                    margin: "8px 0 14px",
-                    fontSize: 11.5,
-                    color: "rgba(255,255,255,0.2)",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
-                >
-                  <div
-                    style={{
-                      flex: 1,
-                      height: 1,
-                      background: "rgba(255,255,255,0.06)",
-                    }}
-                  />
-                  or bank account
-                  <div
-                    style={{
-                      flex: 1,
-                      height: 1,
-                      background: "rgba(255,255,255,0.06)",
-                    }}
-                  />
-                </div>
-
-                <div className="sp-row-2">
-                  <div className="sp-field">
-                    <label className="sp-label">Bank Name</label>
-                    <input
-                      className="sp-input"
-                      placeholder="e.g. SBI"
-                      value={financial.bankName}
-                      onChange={(e) =>
-                        setFinancial({ ...financial, bankName: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="sp-field">
-                    <label className="sp-label">IFSC Code</label>
-                    <input
-                      className="sp-input"
-                      placeholder="e.g. SBIN0001234"
-                      value={financial.ifsc}
-                      onChange={(e) =>
-                        setFinancial({ ...financial, ifsc: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div className="sp-field">
-                  <label className="sp-label">Account Number</label>
-                  <input
-                    className="sp-input"
-                    placeholder="Your account number"
-                    value={financial.accountNo}
-                    onChange={(e) =>
-                      setFinancial({ ...financial, accountNo: e.target.value })
-                    }
-                  />
-                </div>
-
-                <button
-                  className="sp-save-btn"
-                  onClick={handleFinancialSave}
-                  disabled={saving}
-                >
-                  {saving ? (
-                    <>
-                      <div className="sp-spinner" /> Saving…
-                    </>
-                  ) : (
-                    <>
-                      <Icon name="check" size={14} /> Save payout details
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-
-            {activeTab === "financial" && role === "client" && (
-              <div className="sp-section">
-                <div className="sp-section-title">Billing Details</div>
-                <div className="sp-section-sub">
-                  Manage your payment method for hiring workers.
-                </div>
-
-                <div className="sp-field">
-                  <label className="sp-label">Cardholder Name</label>
-                  <input
-                    className="sp-input"
-                    placeholder="Name on card"
-                    value={financial.billingName}
-                    onChange={(e) =>
-                      setFinancial({
-                        ...financial,
-                        billingName: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="sp-field">
-                  <label className="sp-label">Card Number (last 4)</label>
-                  <input
-                    className="sp-input"
-                    placeholder="•••• •••• •••• 1234"
-                    maxLength={4}
-                    value={financial.cardLast4}
-                    onChange={(e) =>
-                      setFinancial({ ...financial, cardLast4: e.target.value })
-                    }
-                  />
-                </div>
-
-                <button
-                  className="sp-save-btn"
-                  onClick={handleFinancialSave}
-                  disabled={saving}
-                >
-                  {saving ? (
-                    <>
-                      <div className="sp-spinner" /> Saving…
-                    </>
-                  ) : (
-                    <>
-                      <Icon name="check" size={14} /> Save billing details
-                    </>
-                  )}
-                </button>
               </div>
             )}
           </div>

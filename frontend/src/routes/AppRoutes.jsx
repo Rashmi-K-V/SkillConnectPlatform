@@ -1,70 +1,129 @@
-// src/App.jsx — add these routes inside your <Routes>
-// This shows ONLY the client section — merge with your existing routes
+// src/routes/AppRoutes.jsx
+import { useContext } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext.jsx";
 
+// Public
+import SelectLanguage from "../pages/SelectLanguage.jsx";
+import Login from "../pages/Login.jsx";
+import Register from "../pages/Register.jsx";
+
+// Shared
+import SettingsPage from "../pages/SettingsPage.jsx";
+
+// Worker
+import WorkerLayout from "../pages/worker/WorkerDashboard.jsx";
+import UploadVideo from "../pages/worker/UploadVideo.jsx";
+import PortfolioPage from "../pages/worker/PortfolioPage.jsx";
+import WorkerJobs from "../pages/worker/Jobs.jsx";
+import WorkerMessages from "../pages/worker/Messages.jsx";
+
+// Client
 import ClientDashboard from "../pages/client/ClientDashboard.jsx";
 import BrowseWorkers from "../pages/client/BrowseWorkers.jsx";
 import BrowseAllWorkers from "../pages/client/BrowseAllWorkers.jsx";
 import MyJobs from "../pages/client/MyJobs.jsx";
-import SettingsPage from "../pages/SettingsPage.jsx";
+import WorkerProfile from "../pages/client/WorkerProfile.jsx";
 
-// Worker detail page (you likely already have this)
-// import WorkerProfile from "./pages/client/WorkerProfile.jsx";
+// ── Get role from JWT token (handles page refresh when AuthContext.user is null) ──
+function getRoleFromToken() {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    if (payload.exp && payload.exp * 1000 < Date.now()) {
+      localStorage.removeItem("token");
+      return null;
+    }
+    return payload.role;
+  } catch {
+    return null;
+  }
+}
 
-/*
-  <Route path="/client" element={<ClientDashboard />}>
-    <Route path="dashboard"  element={<ClientHome />} />   ← handled inside ClientDashboard
-    <Route path="browse"     element={<BrowseWorkers />} />
-    <Route path="browse-all" element={<BrowseAllWorkers />} />
-    <Route path="jobs"       element={<MyJobs />} />
-    <Route path="settings"   element={<SettingsPage />} />
-    <Route path="worker/:id" element={<WorkerProfile />} />
-  </Route>
+// ── Redirects to /login if not authenticated ──────────────────
+// ── Redirects to correct dashboard if wrong role ─────────────
+function RequireAuth({ role, children }) {
+  const { user } = useContext(AuthContext);
+  const currentRole = user?.role || getRoleFromToken();
 
-  Note: ClientDashboard uses <Outlet /> so nested routes render inside the sidebar layout.
-  The dashboard home content is rendered directly when path === "/client/dashboard".
-*/
+  if (!currentRole) return <Navigate to="/login" replace />;
+  if (role && currentRole !== role)
+    return <Navigate to={`/${currentRole}/dashboard`} replace />;
+  return children;
+}
 
-// Example full App.jsx:
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import SelectLanguage from "../pages/SelectLanguage.jsx";
-import Login from "../pages/Login.jsx";
-import Register from "../pages/Register.jsx";
-import WorkerLayout from "../pages/worker/WorkerDashboard.jsx";
-import PortfolioPage from "../pages/worker/PortfolioPage.jsx";
-import UploadVideo from "../pages/worker/UploadVideo.jsx";
+// ── Redirects already-logged-in users away from /login & /register ──
+function RedirectIfAuth({ children }) {
+  const { user } = useContext(AuthContext);
+  const currentRole = user?.role || getRoleFromToken();
+  if (currentRole) return <Navigate to={`/${currentRole}/dashboard`} replace />;
+  return children;
+}
 
-export default function App() {
+export default function AppRoutes() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public */}
+        {/* ── Public ── */}
         <Route path="/" element={<SelectLanguage />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
 
-        {/* Worker — layout with sidebar */}
-        <Route path="/worker" element={<WorkerLayout />}>
-          <Route path="dashboard" element={null} />{" "}
-          {/* home rendered by WorkerLayout */}
+        <Route
+          path="/login"
+          element={
+            <RedirectIfAuth>
+              <Login />
+            </RedirectIfAuth>
+          }
+        />
+
+        <Route
+          path="/register"
+          element={
+            <RedirectIfAuth>
+              <Register />
+            </RedirectIfAuth>
+          }
+        />
+
+        {/* ── Worker ── */}
+        <Route
+          path="/worker"
+          element={
+            <RequireAuth role="worker">
+              <WorkerLayout />
+            </RequireAuth>
+          }
+        >
+          <Route index element={null} />
+          <Route path="dashboard" element={null} />
           <Route path="upload" element={<UploadVideo />} />
           <Route path="portfolio" element={<PortfolioPage />} />
+          <Route path="jobs" element={<WorkerJobs />} />
+          <Route path="messages" element={<WorkerMessages />} />
           <Route path="settings" element={<SettingsPage />} />
-          {/* <Route path="jobs"    element={<WorkerJobs />} /> */}
-          {/* <Route path="messages" element={<WorkerMessages />} /> */}
         </Route>
 
-        {/* Client — layout with sidebar */}
-        <Route path="/client" element={<ClientDashboard />}>
-          <Route path="dashboard" element={null} />{" "}
-          {/* home rendered by ClientDashboard */}
+        {/* ── Client ── */}
+        <Route
+          path="/client"
+          element={
+            <RequireAuth role="client">
+              <ClientDashboard />
+            </RequireAuth>
+          }
+        >
+          <Route index element={null} />
+          <Route path="dashboard" element={null} />
           <Route path="browse" element={<BrowseWorkers />} />
           <Route path="browse-all" element={<BrowseAllWorkers />} />
           <Route path="jobs" element={<MyJobs />} />
+          <Route path="worker/:workerId" element={<WorkerProfile />} />
           <Route path="settings" element={<SettingsPage />} />
-          {/* <Route path="worker/:id" element={<WorkerProfile />} /> */}
         </Route>
 
-        <Route path="*" element={<Navigate to="/" />} />
+        {/* ── Fallback ── */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

@@ -1,41 +1,48 @@
-// server/src/socket/socket.js
+// src/socket.js  (backend)
 import { Server } from "socket.io";
-import Message from "../models/Message.js";
-import { translateText } from "../services/translation.services.js";
+import jwt from "jsonwebtoken";
 
-let io;
+// Map userId -> socketId for targeted notifications
+const userSockets = new Map();
 
-export const initSocket = (server) => {
-  io = new Server(server, { cors: { origin: "*" } });
+export function initSocket(httpServer) {
+  const io = new Server(httpServer, {
+    cors: {
+      origin: "http://localhost:5173",
+      credentials: true,
+    },
+  });
+
+  // Auth middleware
+  io.use((socket, next) => {
+    try {
+      const token = socket.handshake.auth?.token;
+      if (!token) return next(new Error("No token"));
+      const payload = jwt.verify(token, process.env.JWT_SECRET);
+      socket.userId = payload._id.toString();
+      socket.role   = payload.role;
+      next();
+    } catch {
+      next(new Error("Invalid token"));
+    }
+  });
 
   io.on("connection", (socket) => {
+    userSockets.set(socket.userId, socket.id);
+    console.log(`Socket connected: ${socket.userId} (${socket.role})`);
 
-    // Join a job room (both client and worker join same room)
-    socket.on("joinJob", (jobId) => {
-      socket.join(jobId);
+    socket.on("disconnect", () => {
+      userSockets.delete(socket.userId);
     });
-
-    // Chat messages
-    socket.on("sendMessage", async ({ jobId, senderId, text, lang }) => {
-      try {
-        const message = await Message.create({ jobId, senderId, text });
-        const translated = lang ? await translateText(text, lang) : text;
-        io.to(jobId).emit("receiveMessage", {
-          ...message._doc,
-          translatedText: translated
-        });
-      } catch (err) {
-        console.error("Socket message error:", err);
-      }
-    });
-
-    // Job status updates (emit from controller via io)
-    socket.on("jobStatusUpdate", ({ jobId, status, price }) => {
-      io.to(jobId).emit("jobStatusChanged", { jobId, status, price });
-    });
-
   });
-};
 
-// Export io so controllers can emit events
-export const getIO = () => io;
+  return { io, userSockets };
+}
+
+// Call this from controllers to notify a specific user
+export function notifyUser(io, userSockets, userId, event, data) {
+  const socketId = userSockets.get(userId.toString());
+  if (socketId) {
+    io.to(socketId).emit(event, data);
+  }
+}

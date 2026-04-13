@@ -327,7 +327,7 @@ export default function ClientDashboard() {
                 <polygon points="5,3 19,12 5,21" />
               </svg>
             </div>
-            <span style={s.brandName}>WorkerHub</span>
+            <span style={s.brandName}>SkillConnect</span>
           </div>
           <div style={s.sectionLabel}>Menu</div>
           <ul style={s.navList}>

@@ -5,9 +5,10 @@ import {
   acceptJob,
   rejectJob,
   negotiateJob,
-  markOngoing,
+  generateArrivalOtp,
+  verifyArrivalOtp,
   completeJob,
-  rateJob,
+  submitFeedback,
   getWorkerJobs,
   getClientJobs,
 } from "../controllers/job.controller.js";
@@ -15,14 +16,15 @@ import { protect } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-router.post("/",                    protect, requestJob);
-router.get("/worker",               protect, getWorkerJobs);
-router.get("/client",               protect, getClientJobs);
-router.put("/:id/accept",           protect, acceptJob);
-router.put("/:id/reject",           protect, rejectJob);
-router.put("/:id/negotiate",        protect, negotiateJob);
-router.put("/:id/ongoing",          protect, markOngoing);  // worker marks arrived
-router.put("/:id/complete",         protect, completeJob);
-router.post("/:id/rate",            protect, rateJob);      // client rates worker
+router.post("/",                      protect, requestJob);
+router.get("/worker",                 protect, getWorkerJobs);
+router.get("/client",                 protect, getClientJobs);
+router.put("/:id/accept",             protect, acceptJob);
+router.put("/:id/reject",             protect, rejectJob);
+router.put("/:id/negotiate",          protect, negotiateJob);       // opens 5-min chat
+router.put("/:id/arrival-otp",        protect, generateArrivalOtp); // worker en route → OTP
+router.post("/:id/verify-arrival",    protect, verifyArrivalOtp);   // client verifies OTP
+router.put("/:id/complete",           protect, completeJob);
+router.post("/:id/feedback",          protect, submitFeedback);     // client submits review
 
 export default router;

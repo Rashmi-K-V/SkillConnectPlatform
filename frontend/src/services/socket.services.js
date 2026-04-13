@@ -1,14 +1,23 @@
 import { io } from "socket.io-client";
 
-// connect to backend (port 3000)
-const socket = io("http://localhost:3000", {
-  autoConnect: true,
-  transports: ["websocket"],
+const SOCKET_URL = "http://localhost:3000";
 
-  // optional but good
-  reconnection: true,
-  reconnectionAttempts: 5,
-  reconnectionDelay: 1000
-});
+let socket = null;
 
-export default socket;
+export function getSocket() {
+  if (!socket) {
+    const token = localStorage.getItem("token");
+    socket = io(SOCKET_URL, {
+      auth: { token },
+      transports: ["websocket"],
+    });
+  }
+  return socket;
+}
+
+export function disconnectSocket() {
+  if (socket) {
+    socket.disconnect();
+    socket = null;
+  }
+}
