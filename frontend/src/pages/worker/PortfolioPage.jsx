@@ -3,8 +3,8 @@ import { useState, useEffect, useContext, useRef } from "react";
 import api from "../../services/api.services.js";
 import { useWorker } from "../../context/WorkerContext.jsx";
 import { LanguageContext } from "../../context/LanguageContext.jsx";
+import { CATEGORY_DATA, ALL_CATEGORIES } from "../../data/categoryData.js";
 
-const CATEGORIES = ["electrician", "plumber", "cleaner", "cook", "tailor"];
 const ALL_LANGUAGES = [
   "English",
   "Hindi",
@@ -15,35 +15,61 @@ const ALL_LANGUAGES = [
   "Marathi",
 ];
 
-// ── Voice → English translation ───────────────────────────────
-// Uses Web Speech API to transcribe, then sends to backend for translation
-async function transcribeAndTranslate(transcript, targetLang = "en") {
-  if (!transcript) return "";
+// Returns true if description looks like BLIP/AI-generated image caption
+function isBlipDescription(text) {
+  if (!text || text.trim().length < 15) return true;
+  const blipPhrases = [
+    "a person is",
+    "a man is",
+    "a woman is",
+    "indian girl",
+    "girl in shorts",
+    "playing with a toy",
+    "standing in the middle",
+    "person using",
+    "person holding",
+    "someone is",
+    "man is using",
+    "woman is using",
+    "striped shirt",
+    "standing near",
+    "wearing a",
+    "looking at",
+    "sitting on",
+    "holding a",
+    "using a phone",
+    "a boy is",
+    "a girl is",
+    "painting a wall",
+    "working on a circuit",
+    "man in a yellow shirt",
+    "man working on",
+  ];
+  return blipPhrases.some((b) => text.toLowerCase().includes(b));
+}
+
+// Voice → English translation
+async function translateToEnglish(text) {
   try {
-    const res = await api.post("/auth/translate", {
-      text: transcript,
-      targetLang,
-    });
-    return res.data.translated || transcript;
+    const res = await api.post("/auth/translate", { text, targetLang: "en" });
+    return res.data.translated || text;
   } catch {
-    return transcript; // fallback: return as-is
+    return text;
   }
 }
 
-function useVoiceToEnglish(onResult, mode = "text") {
+function useVoiceToEnglish(onResult) {
   const [listening, setListening] = useState(false);
   const recRef = useRef(null);
-
-  const start = async () => {
+  const start = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
       alert("Speech recognition not supported. Please use Chrome.");
       return;
     }
-
     const rec = new SR();
     recRef.current = rec;
-    rec.lang = "en-US"; // browser handles multilingual input
+    rec.lang = "en-US";
     rec.continuous = false;
     rec.interimResults = false;
     rec.onstart = () => setListening(true);
@@ -51,13 +77,11 @@ function useVoiceToEnglish(onResult, mode = "text") {
     rec.onerror = () => setListening(false);
     rec.onresult = async (e) => {
       const raw = e.results[0][0].transcript;
-      // Translate to English regardless of spoken language
-      const english = await transcribeAndTranslate(raw, "en");
+      const english = await translateToEnglish(raw);
       onResult(english, raw);
     };
     rec.start();
   };
-
   const stop = () => {
     recRef.current?.stop();
     setListening(false);
@@ -81,14 +105,17 @@ export default function PortfolioPage() {
     email: "",
     contact: "",
     experience: "",
-    pricing: "",
-    description: "",
+    description: "", // ✅ Always starts blank; only populated if worker typed/spoke it
     skills: [],
     category: "",
     videoUrl: "",
     languagesKnown: [],
+    selectedWorkTypes: [],
+    priceMin: "",
+    priceMax: "",
   });
 
+  // Hydrate form from portfolio — never auto-fill BLIP descriptions
   useEffect(() => {
     if (portfolio) {
       setForm({
@@ -98,12 +125,17 @@ export default function PortfolioPage() {
         email: portfolio.email || user?.email || "",
         contact: portfolio.contact || "",
         experience: portfolio.experience || "",
-        pricing: portfolio.pricing || "",
-        description: portfolio.description || "",
+        // ✅ If description is BLIP/AI-generated, leave blank so worker writes their own
+        description: isBlipDescription(portfolio.description)
+          ? ""
+          : portfolio.description || "",
         skills: portfolio.skills || [],
         category: portfolio.category || "",
         videoUrl: portfolio.videoUrl || "",
         languagesKnown: portfolio.languagesKnown || [],
+        selectedWorkTypes: portfolio.selectedWorkTypes || [],
+        priceMin: portfolio.priceMin || "",
+        priceMax: portfolio.priceMax || "",
       });
     } else if (user) {
       setForm((p) => ({
@@ -114,7 +146,7 @@ export default function PortfolioPage() {
     }
   }, [portfolio, user]);
 
-  // Voice for "About You" — translates to English
+  // Voice for About You
   const {
     listening: voiceAbout,
     start: startAbout,
@@ -126,22 +158,22 @@ export default function PortfolioPage() {
     })),
   );
 
-  // Voice for Skills — translates to English and adds as skill
+  // Voice for Skills
   const { listening: voiceSkill, start: startSkillVoice } = useVoiceToEnglish(
-    (english, raw) => {
-      // Each word/phrase becomes a skill
-      const words = english.split(/[,،、]/); // split by comma (any language)
-      words.forEach((w) => {
-        const s = w.trim();
-        if (s && s.length > 1) {
-          setForm((p) => ({
-            ...p,
-            skills: p.skills.includes(s) ? p.skills : [...p.skills, s],
-          }));
-        }
+    (english) => {
+      const words = english.split(/[,،、]/);
+      setForm((p) => {
+        const newSkills = [...p.skills];
+        words.forEach((w) => {
+          const s = w.trim();
+          if (s && s.length > 1 && !newSkills.includes(s)) newSkills.push(s);
+        });
+        return { ...p, skills: newSkills };
       });
     },
   );
+
+  const catData = CATEGORY_DATA[form.category] || null;
 
   const validate = () => {
     const e = {};
@@ -149,8 +181,6 @@ export default function PortfolioPage() {
     if (!form.name?.trim()) e.name = "Full name required";
     if (!form.contact?.trim()) e.contact = "Contact number required";
     if (!form.experience?.trim()) e.experience = "Experience required";
-    if (!form.pricing?.trim()) e.pricing = "Pricing required";
-    if (!form.gender) e.gender = "Gender required";
     if (form.skills.length === 0) e.skills = "Add at least one skill";
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -161,6 +191,12 @@ export default function PortfolioPage() {
     setSaving(true);
     setSaved(false);
     try {
+      // ✅ Only send description if worker actually typed/spoke something
+      const descriptionToSave =
+        form.description && form.description.trim().length > 0
+          ? form.description.trim()
+          : undefined;
+
       await api.post("/portfolios", {
         name: form.name,
         age: form.age ? Number(form.age) : undefined,
@@ -168,12 +204,14 @@ export default function PortfolioPage() {
         email: form.email || undefined,
         contact: form.contact,
         experience: form.experience,
-        pricing: form.pricing,
-        description: form.description || undefined,
+        description: descriptionToSave, // ✅ undefined = blank, not saved
         skills: form.skills,
-        category: form.category,
+        category: form.category || undefined,
         videoUrl: form.videoUrl || undefined,
         languagesKnown: form.languagesKnown,
+        selectedWorkTypes: form.selectedWorkTypes,
+        priceMin: form.priceMin ? Number(form.priceMin) : undefined,
+        priceMax: form.priceMax ? Number(form.priceMax) : undefined,
       });
       await refreshPortfolio();
       setSaved(true);
@@ -200,7 +238,15 @@ export default function PortfolioPage() {
         ? p.languagesKnown.filter((l) => l !== lang)
         : [...p.languagesKnown, lang],
     }));
+  const toggleWorkType = (id) =>
+    setForm((p) => ({
+      ...p,
+      selectedWorkTypes: p.selectedWorkTypes.includes(id)
+        ? p.selectedWorkTypes.filter((x) => x !== id)
+        : [...p.selectedWorkTypes, id],
+    }));
 
+  // Shared styles
   const card = {
     background: "#1a1a1a",
     border: "1px solid rgba(255,255,255,0.07)",
@@ -217,6 +263,9 @@ export default function PortfolioPage() {
     display: "block",
     marginBottom: 7,
   };
+  const errSt = { fontSize: 12, color: "#f87171", marginTop: 4 };
+  const req = <span style={{ color: "#f87171", marginLeft: 3 }}>*</span>;
+
   const inp = {
     width: "100%",
     background: "rgba(255,255,255,0.05)",
@@ -229,8 +278,12 @@ export default function PortfolioPage() {
     outline: "none",
     boxSizing: "border-box",
   };
-  const errSt = { fontSize: 12, color: "#f87171", marginTop: 4 };
-  const req = <span style={{ color: "#f87171", marginLeft: 3 }}>*</span>;
+
+  const ageInp = {
+    ...inp,
+    MozAppearance: "textfield",
+    WebkitAppearance: "none",
+  };
 
   const voiceBtn = (active, onStart, onStop, label) => (
     <button
@@ -261,7 +314,7 @@ export default function PortfolioPage() {
               background: "#f87171",
               animation: "pulse 1s infinite",
             }}
-          />{" "}
+          />
           Stop
         </>
       ) : (
@@ -277,7 +330,7 @@ export default function PortfolioPage() {
             <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
             <line x1="12" y1="19" x2="12" y2="23" />
             <line x1="8" y1="23" x2="16" y2="23" />
-          </svg>{" "}
+          </svg>
           {label}
         </>
       )}
@@ -294,11 +347,15 @@ export default function PortfolioPage() {
     );
 
   return (
-    <div style={{ maxWidth: 680 }}>
+    <div style={{ maxWidth: 700 }}>
       <style>{`
         .pp-inp:focus{border-color:#c8f135!important;box-shadow:0 0 0 3px rgba(200,241,53,0.09)!important;}
-        .pp-cat:hover,.pp-lang-pill:hover{border-color:rgba(255,255,255,0.3)!important;}
+        .pp-cat:hover,.pp-lang-pill:hover,.pp-work-pill:hover{border-color:rgba(255,255,255,0.3)!important;}
         .pp-err{border-color:#f87171!important;}
+        input[type=number]::-webkit-outer-spin-button,
+        input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+        input[type=number]{-moz-appearance:textfield;}
+        select option{background:#1e1e1e;color:#fff;}
         @keyframes spin{to{transform:rotate(360deg)}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
       `}</style>
@@ -367,47 +424,197 @@ export default function PortfolioPage() {
         </div>
       )}
 
-      {/* Category */}
+      {/* Category — auto-selected from registration, still editable */}
       <div style={card}>
-        <label style={lb}>Worker Category {req}</label>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              className="pp-cat"
-              onClick={() => {
-                setForm((p) => ({ ...p, category: cat }));
-                setErrors((e) => ({ ...e, category: undefined }));
-              }}
+        <label style={lb}>
+          Worker Category {req}
+          {portfolio?.category && (
+            <span
               style={{
-                padding: "7px 18px",
-                borderRadius: 20,
-                border:
-                  form.category === cat
-                    ? "1.5px solid #c8f135"
-                    : "1.5px solid rgba(255,255,255,0.12)",
-                background:
-                  form.category === cat
-                    ? "rgba(200,241,53,0.12)"
-                    : "rgba(255,255,255,0.04)",
-                color:
-                  form.category === cat ? "#c8f135" : "rgba(255,255,255,0.5)",
-                fontFamily: "'Manrope',sans-serif",
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: "pointer",
-                textTransform: "capitalize",
-                transition: "all 0.15s",
+                color: "rgba(200,241,53,0.6)",
+                fontWeight: 400,
+                marginLeft: 8,
+                fontSize: 10,
+                textTransform: "none",
               }}
             >
-              {cat}
-            </button>
-          ))}
+              (set during registration)
+            </span>
+          )}
+        </label>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {ALL_CATEGORIES.map((cat) => {
+            const cd = CATEGORY_DATA[cat];
+            return (
+              <button
+                key={cat}
+                className="pp-cat"
+                onClick={() => {
+                  setForm((p) => ({
+                    ...p,
+                    category: cat,
+                    selectedWorkTypes: [],
+                  }));
+                  setErrors((e) => ({ ...e, category: undefined }));
+                }}
+                style={{
+                  padding: "8px 18px",
+                  borderRadius: 20,
+                  border:
+                    form.category === cat
+                      ? "1.5px solid #c8f135"
+                      : "1.5px solid rgba(255,255,255,0.12)",
+                  background:
+                    form.category === cat
+                      ? "rgba(200,241,53,0.12)"
+                      : "rgba(255,255,255,0.04)",
+                  color:
+                    form.category === cat ? "#c8f135" : "rgba(255,255,255,0.5)",
+                  fontFamily: "'Manrope',sans-serif",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  textTransform: "capitalize",
+                  transition: "all 0.15s",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                {cd.icon} {cd.label}
+              </button>
+            );
+          })}
         </div>
         {errors.category && <div style={errSt}>{errors.category}</div>}
       </div>
 
-      {/* About You — voice to English */}
+      {/* Work Types + Pricing */}
+      {catData && (
+        <div style={card}>
+          <label style={lb}>Services You Offer & Pricing (₹)</label>
+          <div
+            style={{
+              fontSize: 12.5,
+              color: "rgba(255,255,255,0.35)",
+              marginBottom: 14,
+            }}
+          >
+            Select the services you provide. Clients will see your price range.
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 8,
+              marginBottom: 18,
+            }}
+          >
+            {catData.workTypes.map((wt) => (
+              <button
+                key={wt.id}
+                className="pp-work-pill"
+                onClick={() => toggleWorkType(wt.id)}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 12,
+                  border: form.selectedWorkTypes.includes(wt.id)
+                    ? "1.5px solid #c8f135"
+                    : "1.5px solid rgba(255,255,255,0.1)",
+                  background: form.selectedWorkTypes.includes(wt.id)
+                    ? "rgba(200,241,53,0.08)"
+                    : "rgba(255,255,255,0.03)",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  fontFamily: "'Manrope',sans-serif",
+                  transition: "all 0.15s",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: form.selectedWorkTypes.includes(wt.id)
+                      ? "#c8f135"
+                      : "#fff",
+                    marginBottom: 3,
+                  }}
+                >
+                  {wt.label}
+                </div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>
+                  ₹{wt.minPrice.toLocaleString()} – ₹
+                  {wt.maxPrice.toLocaleString()}
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <div
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
+          >
+            <div>
+              <label style={lb}>Your Min Price (₹)</label>
+              <div style={{ position: "relative" }}>
+                <span
+                  style={{
+                    position: "absolute",
+                    left: 13,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    fontSize: 13,
+                    color: "rgba(255,255,255,0.4)",
+                    pointerEvents: "none",
+                  }}
+                >
+                  ₹
+                </span>
+                <input
+                  className="pp-inp"
+                  type="number"
+                  value={form.priceMin}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, priceMin: e.target.value }))
+                  }
+                  placeholder="Min"
+                  style={{ ...inp, paddingLeft: 28 }}
+                />
+              </div>
+            </div>
+            <div>
+              <label style={lb}>Your Max Price (₹)</label>
+              <div style={{ position: "relative" }}>
+                <span
+                  style={{
+                    position: "absolute",
+                    left: 13,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    fontSize: 13,
+                    color: "rgba(255,255,255,0.4)",
+                    pointerEvents: "none",
+                  }}
+                >
+                  ₹
+                </span>
+                <input
+                  className="pp-inp"
+                  type="number"
+                  value={form.priceMax}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, priceMax: e.target.value }))
+                  }
+                  placeholder="Max"
+                  style={{ ...inp, paddingLeft: 28 }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ About You — blank by default, only populated if worker types/speaks */}
       <div style={card}>
         <div
           style={{
@@ -418,14 +625,12 @@ export default function PortfolioPage() {
           }}
         >
           <label style={{ ...lb, marginBottom: 0 }}>About You</label>
-          <div style={{ display: "flex", gap: 8 }}>
-            {voiceBtn(
-              voiceAbout,
-              startAbout,
-              stopAbout,
-              "Speak (any language → English)",
-            )}
-          </div>
+          {voiceBtn(
+            voiceAbout,
+            startAbout,
+            stopAbout,
+            "Speak (any language → English)",
+          )}
         </div>
         {voiceAbout && (
           <div
@@ -447,13 +652,12 @@ export default function PortfolioPage() {
                 animation: "pulse 1s infinite",
               }}
             />
-            Listening… speak in any language — will be translated to English
-            automatically
+            Listening… speak in any language — auto-translated to English
           </div>
         )}
         <textarea
           className="pp-inp"
-          placeholder="Describe your skills and experience… or use the voice button to speak in any language."
+          placeholder="Describe your skills and experience in your own words… or use the voice button above."
           value={form.description}
           onChange={(e) => setForm({ ...form, description: e.target.value })}
           rows={4}
@@ -461,7 +665,7 @@ export default function PortfolioPage() {
         />
       </div>
 
-      {/* Skills — with voice */}
+      {/* Skills with voice */}
       <div style={card}>
         <div
           style={{
@@ -476,8 +680,7 @@ export default function PortfolioPage() {
         </div>
         {voiceSkill && (
           <div style={{ fontSize: 12, color: "#f87171", marginBottom: 8 }}>
-            🎤 Say skill names separated by commas — e.g. "Stitching,
-            Embroidery, Blouse making"
+            🎤 Say skill names separated by commas in any language
           </div>
         )}
         <div
@@ -593,93 +796,123 @@ export default function PortfolioPage() {
         <div
           style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}
         >
-          {[
-            {
-              label: "Full Name",
-              field: "name",
-              type: "text",
-              r: true,
-              ro: false,
-            },
-            { label: "Age", field: "age", type: "number", r: false, ro: false },
-            {
-              label: "Email",
-              field: "email",
-              type: "email",
-              r: true,
-              ro: true,
-            },
-            {
-              label: "Contact No.",
-              field: "contact",
-              type: "tel",
-              r: true,
-              ro: false,
-            },
-            {
-              label: "Experience",
-              field: "experience",
-              type: "text",
-              r: true,
-              ro: false,
-            },
-            {
-              label: "Pricing",
-              field: "pricing",
-              type: "text",
-              r: true,
-              ro: false,
-            },
-          ].map(({ label, field, type, r, ro }) => (
-            <div key={field}>
-              <label style={lb}>
-                {label}
-                {r && (
-                  <span style={{ color: "#f87171", marginLeft: 3 }}>*</span>
-                )}
-              </label>
-              <input
-                className={`pp-inp ${errors[field] ? "pp-err" : ""}`}
-                type={type}
-                value={form[field]}
-                readOnly={ro}
-                onChange={(e) => {
-                  if (ro) return;
-                  setForm((p) => ({ ...p, [field]: e.target.value }));
-                  setErrors((e2) => ({ ...e2, [field]: undefined }));
-                }}
-                style={{
-                  ...inp,
-                  background: ro ? "rgba(255,255,255,0.03)" : inp.background,
-                  cursor: ro ? "not-allowed" : "text",
-                }}
-                placeholder={ro ? "(from your account)" : label}
-              />
-              {errors[field] && <div style={errSt}>{errors[field]}</div>}
-            </div>
-          ))}
+          <div>
+            <label style={lb}>Full Name {req}</label>
+            <input
+              className={`pp-inp ${errors.name ? "pp-err" : ""}`}
+              value={form.name}
+              onChange={(e) => {
+                setForm((p) => ({ ...p, name: e.target.value }));
+                setErrors((e2) => ({ ...e2, name: undefined }));
+              }}
+              style={inp}
+              placeholder="Full name"
+            />
+            {errors.name && <div style={errSt}>{errors.name}</div>}
+          </div>
+
+          <div>
+            <label style={lb}>Age</label>
+            <input
+              className="pp-inp"
+              type="number"
+              value={form.age}
+              onChange={(e) => setForm((p) => ({ ...p, age: e.target.value }))}
+              style={ageInp}
+              placeholder="e.g. 30"
+              min="18"
+              max="80"
+            />
+          </div>
+
+          <div>
+            <label style={lb}>Email {req}</label>
+            <input
+              className="pp-inp"
+              type="email"
+              value={form.email}
+              readOnly
+              style={{
+                ...inp,
+                background: "rgba(255,255,255,0.03)",
+                cursor: "not-allowed",
+              }}
+              placeholder="(from your account)"
+            />
+          </div>
+
+          <div>
+            <label style={lb}>Contact No. {req}</label>
+            <input
+              className={`pp-inp ${errors.contact ? "pp-err" : ""}`}
+              type="tel"
+              value={form.contact}
+              onChange={(e) => {
+                setForm((p) => ({ ...p, contact: e.target.value }));
+                setErrors((e2) => ({ ...e2, contact: undefined }));
+              }}
+              style={inp}
+              placeholder="Phone number"
+            />
+            {errors.contact && <div style={errSt}>{errors.contact}</div>}
+          </div>
+
+          <div style={{ gridColumn: "1/-1" }}>
+            <label style={lb}>Experience {req}</label>
+            <input
+              className={`pp-inp ${errors.experience ? "pp-err" : ""}`}
+              value={form.experience}
+              onChange={(e) => {
+                setForm((p) => ({ ...p, experience: e.target.value }));
+                setErrors((e2) => ({ ...e2, experience: undefined }));
+              }}
+              style={inp}
+              placeholder="e.g. 3 years"
+            />
+            {errors.experience && <div style={errSt}>{errors.experience}</div>}
+          </div>
         </div>
+
         <div style={{ marginTop: 14 }}>
-          <label style={lb}>Gender {req}</label>
+          <label style={lb}>Gender</label>
           <select
-            className={`pp-inp ${errors.gender ? "pp-err" : ""}`}
+            className="pp-inp"
             value={form.gender}
-            onChange={(e) => {
-              setForm((p) => ({ ...p, gender: e.target.value }));
-              setErrors((e2) => ({ ...e2, gender: undefined }));
+            onChange={(e) => setForm((p) => ({ ...p, gender: e.target.value }))}
+            style={{
+              ...inp,
+              cursor: "pointer",
+              color: "#fff",
+              background: "#1e1e1e",
+              appearance: "auto",
             }}
-            style={{ ...inp, cursor: "pointer" }}
           >
-            <option value="">Select gender</option>
-            <option>Male</option>
-            <option>Female</option>
-            <option>Other</option>
+            <option value="" style={{ background: "#1e1e1e", color: "#fff" }}>
+              Select gender
+            </option>
+            <option
+              value="Male"
+              style={{ background: "#1e1e1e", color: "#fff" }}
+            >
+              Male
+            </option>
+            <option
+              value="Female"
+              style={{ background: "#1e1e1e", color: "#fff" }}
+            >
+              Female
+            </option>
+            <option
+              value="Other"
+              style={{ background: "#1e1e1e", color: "#fff" }}
+            >
+              Other
+            </option>
           </select>
-          {errors.gender && <div style={errSt}>{errors.gender}</div>}
         </div>
       </div>
 
-      {/* Reviews — read only, from clients */}
+      {/* Client Reviews — read only */}
       {portfolio?.reviews?.length > 0 && (
         <div style={card}>
           <label style={{ ...lb, marginBottom: 16 }}>
@@ -707,7 +940,7 @@ export default function PortfolioPage() {
                 <span style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>
                   {r.clientName || "Client"}
                 </span>
-                <span style={{ color: "#fbbf24", fontSize: 14 }}>
+                <span style={{ color: "#fbbf24" }}>
                   {"★".repeat(r.rating)}
                   <span style={{ color: "rgba(255,255,255,0.15)" }}>
                     {"★".repeat(5 - r.rating)}
@@ -726,7 +959,14 @@ export default function PortfolioPage() {
                   {r.comment}
                 </p>
               )}
-              <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 14,
+                  marginTop: 8,
+                  flexWrap: "wrap",
+                }}
+              >
                 {r.jobQuality && (
                   <span
                     style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}
@@ -738,7 +978,7 @@ export default function PortfolioPage() {
                   <span
                     style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}
                   >
-                    Time: {r.timeliness}/5
+                    Timeliness: {r.timeliness}/5
                   </span>
                 )}
                 {r.wouldRecommend !== undefined && (

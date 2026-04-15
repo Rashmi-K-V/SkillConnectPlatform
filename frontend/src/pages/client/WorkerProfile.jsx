@@ -2,19 +2,23 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api.services.js";
+import { CATEGORY_DATA } from "../../data/categoryData.js";
 
 export default function WorkerProfile() {
   const { workerId } = useParams();
   const navigate = useNavigate();
   const [portfolio, setPortfolio] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showBook, setShowBook] = useState(false);
+  const [view, setView] = useState("overview"); // overview | book
   const [booking, setBooking] = useState(false);
   const [locLoading, setLocLoading] = useState(false);
   const [bookForm, setBookForm] = useState({
     description: "",
     location: "",
     price: "",
+    selectedWorkType: "",
+    paymentMethod: "cash", // cash | upi | bank_transfer
+    upiId: "",
   });
 
   useEffect(() => {
@@ -33,28 +37,33 @@ export default function WorkerProfile() {
     setLocLoading(true);
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        const { latitude, longitude } = pos.coords;
         try {
-          // Reverse geocode using OpenStreetMap Nominatim (free, no key needed)
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+          const r = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`,
           );
-          const data = await res.json();
-          const addr =
-            data.display_name ||
-            `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-          setBookForm((p) => ({ ...p, location: addr }));
+          const d = await r.json();
+          // ✅ Shorten address — just show area, city (not full 200 char string)
+          const addr = d.address;
+          const short =
+            [
+              addr?.suburb || addr?.neighbourhood,
+              addr?.city || addr?.town,
+              addr?.state,
+            ]
+              .filter(Boolean)
+              .join(", ") || d.display_name;
+          setBookForm((p) => ({ ...p, location: short }));
         } catch {
           setBookForm((p) => ({
             ...p,
-            location: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+            location: `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`,
           }));
         } finally {
           setLocLoading(false);
         }
       },
       () => {
-        alert("Could not get location. Please enter manually.");
+        alert("Could not get location.");
         setLocLoading(false);
       },
     );
@@ -65,13 +74,21 @@ export default function WorkerProfile() {
       alert("Please describe what you need.");
       return;
     }
+    if (bookForm.paymentMethod === "upi" && !bookForm.upiId.trim()) {
+      alert("Please enter your UPI ID.");
+      return;
+    }
     setBooking(true);
     try {
       await api.post("/jobs", {
         workerId,
-        description: bookForm.description,
+        description: bookForm.selectedWorkType
+          ? `${bookForm.selectedWorkType}: ${bookForm.description}`
+          : bookForm.description,
         location: bookForm.location,
         price: bookForm.price ? Number(bookForm.price) : undefined,
+        paymentMethod: bookForm.paymentMethod,
+        upiId: bookForm.upiId || undefined,
       });
       alert("Job request sent! The worker will be notified.");
       navigate("/client/jobs");
@@ -96,7 +113,6 @@ export default function WorkerProfile() {
         Loading profile…
       </div>
     );
-
   if (!portfolio)
     return (
       <div
@@ -144,6 +160,12 @@ export default function WorkerProfile() {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+  const catData = CATEGORY_DATA[portfolio.category] || null;
+  const selectedServices =
+    catData?.workTypes.filter((w) =>
+      (portfolio.selectedWorkTypes || []).includes(w.id),
+    ) || [];
+
   const inp = {
     width: "100%",
     background: "rgba(255,255,255,0.05)",
@@ -156,12 +178,40 @@ export default function WorkerProfile() {
     outline: "none",
     boxSizing: "border-box",
   };
+  const card = {
+    background: "#141414",
+    border: "1px solid rgba(255,255,255,0.07)",
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 14,
+  };
+  const lb = {
+    fontSize: 11,
+    fontWeight: 600,
+    color: "rgba(255,255,255,0.38)",
+    textTransform: "uppercase",
+    letterSpacing: "0.09em",
+    display: "block",
+    marginBottom: 7,
+  };
+
+  const PAYMENT_OPTIONS = [
+    { id: "cash", label: "💵 Cash", desc: "Pay in cash on completion" },
+    { id: "upi", label: "📱 UPI", desc: "Google Pay, PhonePe, Paytm etc." },
+    {
+      id: "bank_transfer",
+      label: "🏦 Bank Transfer",
+      desc: "NEFT / IMPS transfer",
+    },
+  ];
 
   return (
-    <div style={{ maxWidth: 620, fontFamily: "'Manrope',sans-serif" }}>
+    <div style={{ maxWidth: 640, fontFamily: "'Manrope',sans-serif" }}>
       <style>{`
         .wp-inp:focus{border-color:#c8f135!important;box-shadow:0 0 0 3px rgba(200,241,53,0.09)!important;}
         .wp-loc-btn:hover{border-color:#c8f135!important;color:#c8f135!important;}
+        .wp-pay:hover{border-color:rgba(255,255,255,0.22)!important;}
+        @keyframes spin{to{transform:rotate(360deg)}}
       `}</style>
 
       <button
@@ -196,34 +246,19 @@ export default function WorkerProfile() {
         Back
       </button>
 
-      {/* Header */}
-      <div
-        style={{
-          background: "#141414",
-          border: "1px solid rgba(255,255,255,0.07)",
-          borderRadius: 20,
-          padding: 24,
-          marginBottom: 14,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 16,
-            marginBottom: 18,
-          }}
-        >
+      {/* Header — ✅ NO description shown here (BLIP output was garbage) */}
+      <div style={card}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div
             style={{
-              width: 64,
-              height: 64,
+              width: 68,
+              height: 68,
               borderRadius: "50%",
               background: "linear-gradient(135deg,#f97316,#ec4899)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 22,
+              fontSize: 24,
               fontWeight: 700,
               color: "#fff",
               flexShrink: 0,
@@ -244,7 +279,7 @@ export default function WorkerProfile() {
             <h2
               style={{
                 fontFamily: "'Syne',sans-serif",
-                fontSize: 20,
+                fontSize: 21,
                 fontWeight: 700,
                 color: "#fff",
                 margin: "0 0 6px",
@@ -258,21 +293,26 @@ export default function WorkerProfile() {
                 alignItems: "center",
                 gap: 8,
                 flexWrap: "wrap",
+                marginBottom: 8,
               }}
             >
-              <span
-                style={{
-                  padding: "3px 11px",
-                  borderRadius: 20,
-                  fontSize: 11.5,
-                  fontWeight: 600,
-                  background: "rgba(200,241,53,0.1)",
-                  color: "#c8f135",
-                  textTransform: "capitalize",
-                }}
-              >
-                {portfolio.category || "General"}
-              </span>
+              {catData && (
+                <span
+                  style={{
+                    padding: "3px 11px",
+                    borderRadius: 20,
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    background: "rgba(200,241,53,0.1)",
+                    color: "#c8f135",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                >
+                  {catData.icon} {catData.label}
+                </span>
+              )}
               {portfolio.avgRating > 0 && (
                 <span
                   style={{ fontSize: 12.5, color: "#fbbf24", fontWeight: 600 }}
@@ -281,14 +321,52 @@ export default function WorkerProfile() {
                 </span>
               )}
             </div>
+            {/* Price range — shown prominently */}
+            {(portfolio.priceMin || portfolio.priceMax) && (
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: "rgba(200,241,53,0.08)",
+                  border: "1px solid rgba(200,241,53,0.2)",
+                  borderRadius: 10,
+                  padding: "6px 14px",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: "rgba(255,255,255,0.4)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  Price Range
+                </span>
+                <span
+                  style={{
+                    fontFamily: "'Syne',sans-serif",
+                    fontSize: 18,
+                    fontWeight: 800,
+                    color: "#c8f135",
+                  }}
+                >
+                  ₹{Number(portfolio.priceMin || 0).toLocaleString()} – ₹
+                  {Number(portfolio.priceMax || 0).toLocaleString()}
+                </span>
+              </div>
+            )}
           </div>
         </div>
-        {portfolio.description && (
+        {/* ✅ Only show description if worker manually wrote it (not BLIP output) */}
+        {portfolio.description && !isBlipDescription(portfolio.description) && (
           <p
             style={{
               fontSize: 13.5,
               color: "rgba(255,255,255,0.55)",
               lineHeight: 1.7,
+              margin: "14px 0 0",
             }}
           >
             {portfolio.description}
@@ -296,27 +374,68 @@ export default function WorkerProfile() {
         )}
       </div>
 
-      {/* Details grid */}
-      <div
-        style={{
-          background: "#141414",
-          border: "1px solid rgba(255,255,255,0.07)",
-          borderRadius: 16,
-          padding: 20,
-          marginBottom: 14,
-        }}
-      >
+      {/* Services list */}
+      {selectedServices.length > 0 && (
+        <div style={card}>
+          <div
+            style={{
+              fontSize: 10,
+              fontWeight: 600,
+              color: "rgba(255,255,255,0.28)",
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              marginBottom: 14,
+            }}
+          >
+            Services Offered
+          </div>
+          {selectedServices.map((s) => (
+            <div
+              key={s.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "11px 14px",
+                background: "rgba(255,255,255,0.03)",
+                borderRadius: 10,
+                marginBottom: 8,
+                border: "1px solid rgba(255,255,255,0.05)",
+              }}
+            >
+              <span style={{ fontSize: 13.5, fontWeight: 500, color: "#fff" }}>
+                {s.label}
+              </span>
+              <span
+                style={{
+                  fontFamily: "'Syne',sans-serif",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: "#c8f135",
+                  flexShrink: 0,
+                  marginLeft: 12,
+                }}
+              >
+                ₹{s.minPrice.toLocaleString()}–{s.maxPrice.toLocaleString()}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Details */}
+      <div style={card}>
         <div
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
+          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}
         >
           {[
             { label: "Experience", value: portfolio.experience },
-            {
-              label: "Pricing",
-              value: portfolio.pricing ? `₹${portfolio.pricing}` : null,
-            },
             { label: "Gender", value: portfolio.gender },
             { label: "Contact", value: portfolio.contact },
+            {
+              label: "Age",
+              value: portfolio.age ? `${portfolio.age} yrs` : null,
+            },
           ]
             .filter((d) => d.value)
             .map((d) => (
@@ -348,17 +467,9 @@ export default function WorkerProfile() {
         </div>
       </div>
 
-      {/* Languages Known */}
+      {/* Languages */}
       {portfolio.languagesKnown?.length > 0 && (
-        <div
-          style={{
-            background: "#141414",
-            border: "1px solid rgba(255,255,255,0.07)",
-            borderRadius: 16,
-            padding: 20,
-            marginBottom: 14,
-          }}
-        >
+        <div style={card}>
           <div
             style={{
               fontSize: 10,
@@ -394,15 +505,7 @@ export default function WorkerProfile() {
 
       {/* Skills */}
       {portfolio.skills?.length > 0 && (
-        <div
-          style={{
-            background: "#141414",
-            border: "1px solid rgba(255,255,255,0.07)",
-            borderRadius: 16,
-            padding: 20,
-            marginBottom: 14,
-          }}
-        >
+        <div style={card}>
           <div
             style={{
               fontSize: 10,
@@ -438,15 +541,7 @@ export default function WorkerProfile() {
 
       {/* Video */}
       {portfolio.videoUrl && (
-        <div
-          style={{
-            background: "#141414",
-            border: "1px solid rgba(255,255,255,0.07)",
-            borderRadius: 16,
-            padding: 20,
-            marginBottom: 14,
-          }}
-        >
+        <div style={card}>
           <div
             style={{
               fontSize: 10,
@@ -474,15 +569,7 @@ export default function WorkerProfile() {
 
       {/* Client Reviews */}
       {portfolio.reviews?.length > 0 && (
-        <div
-          style={{
-            background: "#141414",
-            border: "1px solid rgba(255,255,255,0.07)",
-            borderRadius: 16,
-            padding: 20,
-            marginBottom: 14,
-          }}
-        >
+        <div style={card}>
           <div
             style={{
               fontSize: 10,
@@ -517,12 +604,7 @@ export default function WorkerProfile() {
                 <span style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>
                   {r.clientName || "Client"}
                 </span>
-                <span style={{ color: "#fbbf24" }}>
-                  {"★".repeat(r.rating)}
-                  <span style={{ color: "rgba(255,255,255,0.15)" }}>
-                    {"★".repeat(5 - r.rating)}
-                  </span>
-                </span>
+                <span style={{ color: "#fbbf24" }}>{"★".repeat(r.rating)}</span>
               </div>
               {r.comment && (
                 <p
@@ -541,7 +623,7 @@ export default function WorkerProfile() {
                   <span
                     style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}
                   >
-                    Job Quality: {r.jobQuality}/5
+                    Quality: {r.jobQuality}/5
                   </span>
                 )}
                 {r.timeliness && (
@@ -549,13 +631,6 @@ export default function WorkerProfile() {
                     style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}
                   >
                     Timeliness: {r.timeliness}/5
-                  </span>
-                )}
-                {r.communication && (
-                  <span
-                    style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}
-                  >
-                    Communication: {r.communication}/5
                   </span>
                 )}
                 {r.wouldRecommend !== undefined && (
@@ -576,13 +651,13 @@ export default function WorkerProfile() {
         </div>
       )}
 
-      {/* Book */}
-      {!showBook ? (
+      {/* Book section */}
+      {view === "overview" ? (
         <button
-          onClick={() => setShowBook(true)}
+          onClick={() => setView("book")}
           style={{
             width: "100%",
-            padding: "14px",
+            padding: "15px",
             background: "#c8f135",
             color: "#0d0d0d",
             border: "none",
@@ -591,23 +666,12 @@ export default function WorkerProfile() {
             fontWeight: 700,
             cursor: "pointer",
             fontFamily: "'Manrope',sans-serif",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
           }}
         >
           Book {name}
         </button>
       ) : (
-        <div
-          style={{
-            background: "#141414",
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderRadius: 16,
-            padding: 22,
-          }}
-        >
+        <div style={{ ...card, border: "1px solid rgba(200,241,53,0.2)" }}>
           <div
             style={{
               fontFamily: "'Syne',sans-serif",
@@ -626,23 +690,66 @@ export default function WorkerProfile() {
               marginBottom: 18,
             }}
           >
-            Describe what you need — the worker will confirm or negotiate.
+            Describe what you need. The worker will confirm or negotiate.
           </div>
 
+          {/* Select service */}
+          {selectedServices.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <label style={lb}>Select Service</label>
+              {selectedServices.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() =>
+                    setBookForm((p) => ({
+                      ...p,
+                      selectedWorkType: s.label,
+                      price: s.minPrice,
+                    }))
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    border: `1.5px solid ${bookForm.selectedWorkType === s.label ? "#c8f135" : "rgba(255,255,255,0.1)"}`,
+                    background:
+                      bookForm.selectedWorkType === s.label
+                        ? "rgba(200,241,53,0.08)"
+                        : "rgba(255,255,255,0.03)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    fontFamily: "'Manrope',sans-serif",
+                    marginBottom: 6,
+                    transition: "all 0.15s",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color:
+                        bookForm.selectedWorkType === s.label
+                          ? "#c8f135"
+                          : "#fff",
+                    }}
+                  >
+                    {s.label}
+                  </span>
+                  <span
+                    style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}
+                  >
+                    ₹{s.minPrice.toLocaleString()}–{s.maxPrice.toLocaleString()}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Description */}
           <div style={{ marginBottom: 12 }}>
-            <label
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: "rgba(255,255,255,0.38)",
-                textTransform: "uppercase",
-                letterSpacing: "0.09em",
-                display: "block",
-                marginBottom: 6,
-              }}
-            >
-              What do you need? *
-            </label>
+            <label style={lb}>What do you need? *</label>
             <textarea
               className="wp-inp"
               value={bookForm.description}
@@ -650,26 +757,14 @@ export default function WorkerProfile() {
               onChange={(e) =>
                 setBookForm((p) => ({ ...p, description: e.target.value }))
               }
-              placeholder="e.g. Blouse stitching, fix leaking pipe…"
+              placeholder="Describe the job in detail…"
               style={{ ...inp, resize: "vertical", lineHeight: 1.6 }}
             />
           </div>
 
-          {/* Location with current location button */}
+          {/* Location — ✅ Fix 3: truncated, short address */}
           <div style={{ marginBottom: 12 }}>
-            <label
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: "rgba(255,255,255,0.38)",
-                textTransform: "uppercase",
-                letterSpacing: "0.09em",
-                display: "block",
-                marginBottom: 6,
-              }}
-            >
-              Location
-            </label>
+            <label style={lb}>Location</label>
             <div style={{ display: "flex", gap: 8 }}>
               <input
                 className="wp-inp"
@@ -678,13 +773,17 @@ export default function WorkerProfile() {
                   setBookForm((p) => ({ ...p, location: e.target.value }))
                 }
                 placeholder="Your address…"
-                style={{ ...inp, flex: 1 }}
+                style={{
+                  ...inp,
+                  flex: 1,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
               />
               <button
                 className="wp-loc-btn"
                 onClick={useCurrentLocation}
                 disabled={locLoading}
-                title="Use current location"
                 style={{
                   padding: "10px 14px",
                   background: "rgba(255,255,255,0.05)",
@@ -715,52 +814,110 @@ export default function WorkerProfile() {
                     }}
                   />
                 ) : (
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    style={{ width: 14, height: 14 }}
-                  >
-                    <circle cx="12" cy="12" r="3" />
-                    <path d="M12 1v4M12 19v4M1 12h4M19 12h4" />
-                    <circle cx="12" cy="12" r="10" strokeDasharray="3 3" />
-                  </svg>
+                  "📍"
                 )}
-                {locLoading ? "Getting…" : "📍 Current"}
+                {locLoading ? "Getting…" : "Current"}
               </button>
             </div>
           </div>
 
+          {/* Budget */}
           <div style={{ marginBottom: 16 }}>
-            <label
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: "rgba(255,255,255,0.38)",
-                textTransform: "uppercase",
-                letterSpacing: "0.09em",
-                display: "block",
-                marginBottom: 6,
-              }}
-            >
-              Your Budget (₹)
-            </label>
-            <input
-              className="wp-inp"
-              type="number"
-              value={bookForm.price}
-              onChange={(e) =>
-                setBookForm((p) => ({ ...p, price: e.target.value }))
-              }
-              placeholder="Optional"
-              style={inp}
-            />
+            <label style={lb}>Your Budget (₹)</label>
+            <div style={{ position: "relative" }}>
+              <span
+                style={{
+                  position: "absolute",
+                  left: 13,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  fontSize: 13,
+                  color: "rgba(255,255,255,0.4)",
+                  pointerEvents: "none",
+                }}
+              >
+                ₹
+              </span>
+              <input
+                className="wp-inp"
+                type="number"
+                value={bookForm.price}
+                onChange={(e) =>
+                  setBookForm((p) => ({ ...p, price: e.target.value }))
+                }
+                placeholder="Optional"
+                style={{ ...inp, paddingLeft: 28 }}
+              />
+            </div>
+          </div>
+
+          {/* ✅ Payment Method */}
+          <div style={{ marginBottom: 16 }}>
+            <label style={lb}>Payment Method *</label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {PAYMENT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  className="wp-pay"
+                  onClick={() =>
+                    setBookForm((p) => ({
+                      ...p,
+                      paymentMethod: opt.id,
+                      upiId: opt.id !== "upi" ? "" : p.upiId,
+                    }))
+                  }
+                  style={{
+                    padding: "11px 14px",
+                    borderRadius: 10,
+                    border: `1.5px solid ${bookForm.paymentMethod === opt.id ? "#c8f135" : "rgba(255,255,255,0.1)"}`,
+                    background:
+                      bookForm.paymentMethod === opt.id
+                        ? "rgba(200,241,53,0.08)"
+                        : "rgba(255,255,255,0.03)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    fontFamily: "'Manrope',sans-serif",
+                    transition: "all 0.15s",
+                    textAlign: "left",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 13.5,
+                      fontWeight: 600,
+                      color:
+                        bookForm.paymentMethod === opt.id ? "#c8f135" : "#fff",
+                    }}
+                  >
+                    {opt.label}
+                  </span>
+                  <span
+                    style={{ fontSize: 11.5, color: "rgba(255,255,255,0.35)" }}
+                  >
+                    {opt.desc}
+                  </span>
+                </button>
+              ))}
+            </div>
+            {/* UPI ID input */}
+            {bookForm.paymentMethod === "upi" && (
+              <input
+                className="wp-inp"
+                value={bookForm.upiId}
+                onChange={(e) =>
+                  setBookForm((p) => ({ ...p, upiId: e.target.value }))
+                }
+                placeholder="yourname@upi"
+                style={{ ...inp, marginTop: 10 }}
+              />
+            )}
           </div>
 
           <div style={{ display: "flex", gap: 10 }}>
             <button
-              onClick={() => setShowBook(false)}
+              onClick={() => setView("overview")}
               style={{
                 flex: 1,
                 padding: "11px",
@@ -797,7 +954,28 @@ export default function WorkerProfile() {
           </div>
         </div>
       )}
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
+}
+
+// Helper — detect BLIP-generated garbage descriptions
+function isBlipDescription(text) {
+  if (!text) return true;
+  const blipPhrases = [
+    "a person is",
+    "a man is",
+    "a woman is",
+    "indian girl",
+    "girl in shorts",
+    "playing with a toy",
+    "standing in the middle",
+    "person using",
+    "person holding",
+    "someone is",
+    "man is using",
+    "woman is using",
+    "striped shirt",
+    "standing near",
+  ];
+  return blipPhrases.some((b) => text.toLowerCase().includes(b));
 }

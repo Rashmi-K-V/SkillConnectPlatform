@@ -1,7 +1,8 @@
 // src/pages/worker/WorkerDashboard.jsx
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useWorker } from "../../context/WorkerContext.jsx";
+import api from "../../services/api.services.js";
 
 const NAV = [
   {
@@ -110,6 +111,8 @@ export default function WorkerLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, portfolio, loading } = useWorker();
   const currentPath = location.pathname;
+  const isHome =
+    currentPath === "/worker" || currentPath === "/worker/dashboard";
 
   const initials = user?.name
     ? user.name
@@ -126,9 +129,6 @@ export default function WorkerLayout() {
     if (h < 17) return "Good afternoon";
     return "Good evening";
   };
-
-  const isHome =
-    currentPath === "/worker" || currentPath === "/worker/dashboard";
 
   const s = {
     root: {
@@ -304,23 +304,21 @@ export default function WorkerLayout() {
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Manrope:wght@400;500;600&display=swap');
-        .wh-navbtn:hover { background: rgba(255,255,255,0.06) !important; color: rgba(255,255,255,0.85) !important; }
-        .wh-navbtn.active:hover { background: #c8f135 !important; }
-        .wh-iconbtn:hover { background: rgba(255,255,255,0.1) !important; color: #fff !important; }
-        .wh-usercard:hover { background: rgba(255,255,255,0.05) !important; }
-        .wh-action-card { border:none; text-align:left; width:100%; cursor:pointer; position:relative; overflow:hidden; transition:transform 0.2s ease,box-shadow 0.2s ease; border-radius:18px; padding:22px; }
-        .wh-action-card:hover { transform:translateY(-3px); box-shadow:0 18px 36px rgba(0,0,0,0.5); }
-        .wh-arrow { transition:transform 0.2s; }
-        .wh-action-card:hover .wh-arrow { transform:translateX(4px); }
-        .wh-content::-webkit-scrollbar { width:4px; }
-        .wh-content::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.08); border-radius:4px; }
-        .wh-hamburger { display:none; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.08); border-radius:9px; cursor:pointer; color:rgba(255,255,255,0.5); padding:7px; align-items:center; justify-content:center; flex-shrink:0; }
-        .wh-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:40; }
-        .wh-act-row { display:flex; align-items:center; gap:12px; padding:13px 0; border-bottom:1px solid rgba(255,255,255,0.04); }
-        .wh-act-row:last-child { border-bottom:none; }
-        .wh-todo-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
-        .wh-todo-row:last-child { border-bottom:none; }
-        @media(max-width:900px){ .wh-bottom-grid { grid-template-columns:1fr !important; } }
+        .wh-navbtn:hover{background:rgba(255,255,255,0.06)!important;color:rgba(255,255,255,0.85)!important;}
+        .wh-navbtn.active:hover{background:#c8f135!important;}
+        .wh-iconbtn:hover{background:rgba(255,255,255,0.1)!important;color:#fff!important;}
+        .wh-usercard:hover{background:rgba(255,255,255,0.05)!important;}
+        .wh-action-card{border:none;text-align:left;width:100%;cursor:pointer;position:relative;overflow:hidden;transition:transform 0.2s ease,box-shadow 0.2s ease;border-radius:18px;padding:22px;}
+        .wh-action-card:hover{transform:translateY(-3px);box-shadow:0 18px 36px rgba(0,0,0,0.5);}
+        .wh-arrow{transition:transform 0.2s;}
+        .wh-action-card:hover .wh-arrow{transform:translateX(4px);}
+        .wh-content::-webkit-scrollbar{width:4px;}
+        .wh-content::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:4px;}
+        .wh-hamburger{display:none;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);border-radius:9px;cursor:pointer;color:rgba(255,255,255,0.5);padding:7px;align-items:center;justify-content:center;flex-shrink:0;}
+        .wh-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:40;}
+        .wh-act-row{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+        .wh-act-row:last-child{border-bottom:none;}
+        @media(max-width:900px){.wh-bottom-grid{grid-template-columns:1fr!important;}}
         @media(max-width:768px){
           .wh-sidebar{position:fixed!important;top:0;left:0;bottom:0;transform:translateX(-100%)!important;width:240px!important;}
           .wh-sidebar.open{transform:translateX(0)!important;}
@@ -343,7 +341,6 @@ export default function WorkerLayout() {
       />
 
       <div style={s.root}>
-        {/* SIDEBAR */}
         <aside
           className={`wh-sidebar ${mobileOpen ? "open" : ""}`}
           style={s.sidebar}
@@ -360,9 +357,7 @@ export default function WorkerLayout() {
             </div>
             <span style={s.brandName}>SkillConnect</span>
           </div>
-
           <div style={s.sectionLabel}>Main Menu</div>
-
           <ul style={s.navList}>
             {NAV.map((item) => {
               const active =
@@ -386,7 +381,6 @@ export default function WorkerLayout() {
               );
             })}
           </ul>
-
           <div style={s.userArea}>
             <div
               className="wh-usercard"
@@ -406,14 +400,13 @@ export default function WorkerLayout() {
                     textTransform: "capitalize",
                   }}
                 >
-                  {user?.category ?? "Worker"}
+                  {portfolio?.category ?? "Worker"}
                 </div>
               </div>
             </div>
           </div>
         </aside>
 
-        {/* MAIN */}
         <div style={s.main}>
           <header className="wh-topbar" style={s.topbar}>
             <button
@@ -509,19 +502,32 @@ export default function WorkerLayout() {
   );
 }
 
-/* ─────────────────────────────────────
-   DASHBOARD HOME
-───────────────────────────────────── */
 function DashboardHome({ user, portfolio, loading, nav, getGreeting }) {
   const firstName = user?.name?.split(" ")[0] ?? "there";
   const skills = portfolio?.skills ?? [];
 
-  // Profile completion
+  // ── Fetch real jobs from API ──────────────────────────────
+  const [recentJobs, setRecentJobs] = useState([]);
+  const [jobsLoading, setJobsLoading] = useState(true);
+
+  useEffect(() => {
+    api
+      .get("/jobs/worker")
+      .then((r) => setRecentJobs((r.data || []).slice(0, 3)))
+      .catch(() => setRecentJobs([]))
+      .finally(() => setJobsLoading(false));
+  }, []);
+
   const checks = [
     { label: "Name added", done: !!user?.name, path: "/worker/settings" },
     { label: "Photo uploaded", done: !!user?.avatar, path: "/worker/settings" },
     {
-      label: "Skills listed",
+      label: "Category selected",
+      done: !!portfolio?.category,
+      path: "/worker/portfolio",
+    },
+    {
+      label: "Skills added",
       done: skills.length > 0,
       path: "/worker/portfolio",
     },
@@ -531,8 +537,8 @@ function DashboardHome({ user, portfolio, loading, nav, getGreeting }) {
       path: "/worker/portfolio",
     },
     {
-      label: "Price range set",
-      done: !!portfolio?.priceRange?.min,
+      label: "Pricing set",
+      done: !!portfolio?.pricing,
       path: "/worker/portfolio",
     },
   ];
@@ -547,15 +553,20 @@ function DashboardHome({ user, portfolio, loading, nav, getGreeting }) {
       accent: "#c8f135",
     },
     {
-      label: "Profile Views",
-      value: "—",
-      delta: "coming soon",
-      accent: "#a78bfa",
+      label: "Avg Rating",
+      value: portfolio?.avgRating ? `${portfolio.avgRating}★` : "—",
+      delta: portfolio?.totalRatings
+        ? `${portfolio.totalRatings} reviews`
+        : "no reviews yet",
+      accent: "#fbbf24",
     },
     {
       label: "Jobs Completed",
-      value: "—",
-      delta: "coming soon",
+      value:
+        recentJobs.filter(
+          (j) => j.status === "completed" || j.status === "rated",
+        ).length || "0",
+      delta: "total",
       accent: "#60a5fa",
     },
   ];
@@ -569,7 +580,7 @@ function DashboardHome({ user, portfolio, loading, nav, getGreeting }) {
       bg: "#c8f135",
       textDark: true,
       accent: "#c8f135",
-      iconStroke: "#0d0d0d",
+      stroke: "#0d0d0d",
     },
     {
       label: "Find Jobs",
@@ -579,7 +590,7 @@ function DashboardHome({ user, portfolio, loading, nav, getGreeting }) {
       bg: "#1a1a1a",
       textDark: false,
       accent: "#a78bfa",
-      iconStroke: "#a78bfa",
+      stroke: "#a78bfa",
     },
     {
       label: "My Portfolio",
@@ -589,7 +600,7 @@ function DashboardHome({ user, portfolio, loading, nav, getGreeting }) {
       bg: "#1a1a1a",
       textDark: false,
       accent: "#34d399",
-      iconStroke: "#34d399",
+      stroke: "#34d399",
     },
     {
       label: "Messages",
@@ -599,83 +610,15 @@ function DashboardHome({ user, portfolio, loading, nav, getGreeting }) {
       bg: "#1a1a1a",
       textDark: false,
       accent: "#fb923c",
-      iconStroke: "#fb923c",
+      stroke: "#fb923c",
     },
   ];
 
-  const ACTIVITY = [
-    {
-      name: "Brand Ad — TechCorp v2.mp4",
-      time: "2 hours ago",
-      status: "Processing",
-    },
-    {
-      name: "Reel Edit — Client Project.mp4",
-      time: "Yesterday",
-      status: "Live",
-    },
-    {
-      name: "Promo Cut — Local Business.mp4",
-      time: "3 days ago",
-      status: "Live",
-    },
-  ];
-
-  const actionIcon = (label, stroke) => {
-    if (label === "Upload Video")
-      return (
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke={stroke}
-          strokeWidth="2.2"
-          style={{ width: 20, height: 20 }}
-        >
-          <polyline points="16 16 12 12 8 16" />
-          <line x1="12" y1="12" x2="12" y2="21" />
-          <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
-        </svg>
-      );
-    if (label === "Find Jobs")
-      return (
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke={stroke}
-          strokeWidth="2.2"
-          style={{ width: 20, height: 20 }}
-        >
-          <circle cx="11" cy="11" r="8" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-      );
-    if (label === "My Portfolio")
-      return (
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke={stroke}
-          strokeWidth="2.2"
-          style={{ width: 20, height: 20 }}
-        >
-          <rect x="2" y="7" width="20" height="14" rx="2" />
-          <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
-        </svg>
-      );
-    if (label === "Messages")
-      return (
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke={stroke}
-          strokeWidth="2.2"
-          style={{ width: 20, height: 20 }}
-        >
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
-      );
+  const card = {
+    background: "#1a1a1a",
+    border: "1px solid rgba(255,255,255,0.07)",
+    borderRadius: 16,
   };
-
   const secLabel = {
     fontSize: 10,
     fontWeight: 600,
@@ -684,15 +627,9 @@ function DashboardHome({ user, portfolio, loading, nav, getGreeting }) {
     color: "rgba(255,255,255,0.22)",
     marginBottom: 10,
   };
-  const card = {
-    background: "#1a1a1a",
-    border: "1px solid rgba(255,255,255,0.07)",
-    borderRadius: 16,
-  };
 
   return (
     <>
-      {/* GREETING */}
       <div style={{ marginBottom: 26 }}>
         <h1
           style={{
@@ -711,7 +648,7 @@ function DashboardHome({ user, portfolio, loading, nav, getGreeting }) {
         </p>
       </div>
 
-      {/* STATS */}
+      {/* Stats */}
       <div
         className="wh-stats"
         style={{
@@ -738,7 +675,7 @@ function DashboardHome({ user, portfolio, loading, nav, getGreeting }) {
             <div
               style={{
                 fontFamily: "'Syne',sans-serif",
-                fontSize: 30,
+                fontSize: 28,
                 fontWeight: 700,
                 color: "#fff",
                 lineHeight: 1,
@@ -757,7 +694,7 @@ function DashboardHome({ user, portfolio, loading, nav, getGreeting }) {
         ))}
       </div>
 
-      {/* QUICK ACTIONS */}
+      {/* Quick Actions */}
       <div style={secLabel}>Quick Actions</div>
       <div
         className="wh-cards"
@@ -795,23 +732,6 @@ function DashboardHome({ user, portfolio, loading, nav, getGreeting }) {
             />
             <div
               style={{
-                width: 40,
-                height: 40,
-                borderRadius: 11,
-                background: action.textDark
-                  ? "rgba(0,0,0,0.15)"
-                  : `${action.accent}18`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: 14,
-                border: `1px solid ${action.textDark ? "rgba(0,0,0,0.1)" : action.accent + "30"}`,
-              }}
-            >
-              {actionIcon(action.label, action.iconStroke)}
-            </div>
-            <div
-              style={{
                 fontFamily: "'Syne',sans-serif",
                 fontWeight: 700,
                 fontSize: 14,
@@ -827,7 +747,7 @@ function DashboardHome({ user, portfolio, loading, nav, getGreeting }) {
                 color: action.textDark
                   ? "rgba(0,0,0,0.45)"
                   : "rgba(255,255,255,0.32)",
-                marginBottom: 18,
+                marginBottom: 16,
                 lineHeight: 1.4,
               }}
             >
@@ -860,12 +780,12 @@ function DashboardHome({ user, portfolio, loading, nav, getGreeting }) {
         ))}
       </div>
 
-      {/* BOTTOM: ACTIVITY + PROFILE COMPLETION */}
+      {/* Bottom: Real Activity + Profile Completion */}
       <div
         className="wh-bottom-grid"
         style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 14 }}
       >
-        {/* Recent Activity */}
+        {/* Recent Jobs — real data */}
         <div style={card}>
           <div
             style={{
@@ -884,10 +804,10 @@ function DashboardHome({ user, portfolio, loading, nav, getGreeting }) {
                 color: "#fff",
               }}
             >
-              Recent Uploads
+              Recent Jobs
             </span>
             <button
-              onClick={() => nav("/worker/upload")}
+              onClick={() => nav("/worker/jobs")}
               style={{
                 fontSize: 12,
                 color: "#c8f135",
@@ -898,83 +818,117 @@ function DashboardHome({ user, portfolio, loading, nav, getGreeting }) {
                 fontFamily: "'Manrope',sans-serif",
               }}
             >
-              + Upload →
+              View all →
             </button>
           </div>
           <div style={{ padding: "0 20px" }}>
-            {ACTIVITY.map((item, i) => (
+            {jobsLoading ? (
               <div
-                key={item.name}
-                className="wh-act-row"
                 style={{
-                  borderBottom: i === ACTIVITY.length - 1 ? "none" : undefined,
+                  padding: "20px 0",
+                  textAlign: "center",
+                  color: "rgba(255,255,255,0.3)",
+                  fontSize: 13,
                 }}
               >
-                <div
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 9,
-                    background: "rgba(255,255,255,0.05)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="rgba(255,255,255,0.28)"
-                    strokeWidth="1.8"
-                    style={{ width: 15, height: 15 }}
-                  >
-                    <polygon points="5,3 19,12 5,21" />
-                  </svg>
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 500,
-                      color: "#fff",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {item.name}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 11.5,
-                      color: "rgba(255,255,255,0.28)",
-                      marginTop: 2,
-                    }}
-                  >
-                    {item.time}
-                  </div>
-                </div>
-                <span
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    padding: "4px 10px",
-                    borderRadius: 20,
-                    flexShrink: 0,
-                    background:
-                      item.status === "Live"
-                        ? "rgba(34,197,94,0.13)"
-                        : "rgba(251,191,36,0.12)",
-                    color: item.status === "Live" ? "#4ade80" : "#fbbf24",
-                  }}
-                >
-                  {item.status}
-                </span>
+                Loading…
               </div>
-            ))}
+            ) : recentJobs.length === 0 ? (
+              <div style={{ padding: "24px 0", textAlign: "center" }}>
+                <div style={{ fontSize: 24, marginBottom: 8 }}>📭</div>
+                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.3)" }}>
+                  No jobs yet. Complete your portfolio to attract clients.
+                </div>
+              </div>
+            ) : (
+              recentJobs.map((job, i) => {
+                const statusColors = {
+                  pending: "#fbbf24",
+                  negotiating: "#a78bfa",
+                  accepted: "#4ade80",
+                  rejected: "#f87171",
+                  ongoing: "#a78bfa",
+                  verified: "#60a5fa",
+                  completed: "#4ade80",
+                  rated: "#fbbf24",
+                };
+                const color = statusColors[job.status] || "#fbbf24";
+                return (
+                  <div
+                    key={job._id}
+                    className="wh-act-row"
+                    style={{
+                      borderBottom:
+                        i === recentJobs.length - 1 ? "none" : undefined,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 9,
+                        background: "rgba(255,255,255,0.05)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="rgba(255,255,255,0.28)"
+                        strokeWidth="1.8"
+                        style={{ width: 15, height: 15 }}
+                      >
+                        <rect x="2" y="7" width="20" height="14" rx="2" />
+                        <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+                      </svg>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 500,
+                          color: "#fff",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {job.description?.slice(0, 40) || "Job request"}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 11.5,
+                          color: "rgba(255,255,255,0.28)",
+                          marginTop: 2,
+                        }}
+                      >
+                        Client: {job.clientId?.name || "—"}
+                      </div>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        padding: "3px 9px",
+                        borderRadius: 20,
+                        flexShrink: 0,
+                        background: `${color}18`,
+                        color,
+                        textTransform: "capitalize",
+                      }}
+                    >
+                      {job.status}
+                    </span>
+                  </div>
+                );
+              })
+            )}
           </div>
-          {/* Skills preview inside activity card if any */}
+
+          {/* Skills preview */}
           {skills.length > 0 && (
             <div
               style={{
@@ -1036,10 +990,8 @@ function DashboardHome({ user, portfolio, loading, nav, getGreeting }) {
               marginBottom: 16,
             }}
           >
-            Complete your profile to attract clients
+            Complete to attract more clients
           </div>
-
-          {/* Circular progress */}
           <div
             style={{
               display: "flex",
@@ -1053,7 +1005,7 @@ function DashboardHome({ user, portfolio, loading, nav, getGreeting }) {
                 width: 56,
                 height: 56,
                 borderRadius: "50%",
-                background: `conic-gradient(#c8f135 ${pct * 3.6}deg, rgba(255,255,255,0.07) 0deg)`,
+                background: `conic-gradient(#c8f135 ${pct * 3.6}deg,rgba(255,255,255,0.07) 0deg)`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -1090,15 +1042,22 @@ function DashboardHome({ user, portfolio, loading, nav, getGreeting }) {
                 }}
               >
                 {pct === 100
-                  ? "🎉 Profile is complete!"
-                  : "Finish setup to get hired"}
+                  ? "🎉 Profile complete!"
+                  : "Finish to get hired faster"}
               </div>
             </div>
           </div>
-
-          {/* Checklist */}
           {checks.map((c) => (
-            <div key={c.label} className="wh-todo-row">
+            <div
+              key={c.label}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "9px 0",
+                borderBottom: "1px solid rgba(255,255,255,0.05)",
+              }}
+            >
               <div
                 style={{
                   width: 18,

@@ -1,104 +1,111 @@
 // src/pages/client/MyJobs.jsx
+// ✅ CORRECT OTP FLOW:
+// 1. Worker clicks "En Route" → backend generates arrival OTP → CLIENT sees it on screen
+// 2. Worker arrives, asks client for code → client shows screen → worker enters on their device
+// 3. Arrival verified → work begins
+// 4. Worker completes work → asks "paid?" → generates completion OTP
+// 5. Completion OTP sent to CLIENT → client enters it to close job
+// 6. If worker marks done but client doesn't pay within 10 min → payment dispute escalation
+
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api.services.js";
 import { getSocket } from "../../services/socket.services.js";
 
-function getClientLang() {
-  try {
-    return (
-      JSON.parse(atob(localStorage.getItem("token").split(".")[1])).language ||
-      "en"
-    );
-  } catch {
-    return "en";
-  }
-}
-
-const STATUS = {
-  pending: {
-    bg: "rgba(251,191,36,0.12)",
-    color: "#fbbf24",
-    label: "Awaiting Response",
-  },
-  negotiating: {
-    bg: "rgba(167,139,250,0.12)",
-    color: "#a78bfa",
+const SECTIONS = [
+  { id: "new", label: "New", statuses: ["pending"], color: "#fbbf24" },
+  {
+    id: "negotiating",
     label: "Negotiating",
-  },
-  accepted: {
-    bg: "rgba(74,222,128,0.12)",
-    color: "#4ade80",
-    label: "Accepted",
-  },
-  rejected: {
-    bg: "rgba(248,113,113,0.12)",
-    color: "#f87171",
-    label: "Rejected",
-  },
-  ongoing: {
-    bg: "rgba(167,139,250,0.12)",
+    statuses: ["negotiating"],
     color: "#a78bfa",
-    label: "En Route",
   },
-  verified: {
-    bg: "rgba(96,165,250,0.12)",
-    color: "#60a5fa",
-    label: "Work Started",
-  },
-  completed: {
-    bg: "rgba(74,222,128,0.12)",
+  {
+    id: "active",
+    label: "Active",
+    statuses: ["accepted", "ongoing", "verified", "work_done"],
     color: "#4ade80",
-    label: "Completed",
   },
-  rated: { bg: "rgba(251,191,36,0.12)", color: "#fbbf24", label: "Reviewed" },
+  {
+    id: "past",
+    label: "Past",
+    statuses: ["completed", "rejected", "rated", "payment_dispute"],
+    color: "#60a5fa",
+  },
+];
+
+const STATUS_LABEL = {
+  pending: "Awaiting Response",
+  negotiating: "Negotiating 💬",
+  accepted: "Accepted ✓",
+  rejected: "Rejected",
+  ongoing: "Worker En Route 🚗",
+  verified: "Work In Progress 🔨",
+  work_done: "Work Done — Awaiting Payment",
+  completed: "Completed ✅",
+  rated: "Reviewed ★",
+  payment_dispute: "⚠ Payment Dispute",
+};
+const STATUS_COLOR = {
+  pending: { bg: "rgba(251,191,36,0.12)", color: "#fbbf24" },
+  negotiating: { bg: "rgba(167,139,250,0.15)", color: "#a78bfa" },
+  accepted: { bg: "rgba(74,222,128,0.12)", color: "#4ade80" },
+  rejected: { bg: "rgba(248,113,113,0.12)", color: "#f87171" },
+  ongoing: { bg: "rgba(167,139,250,0.12)", color: "#a78bfa" },
+  verified: { bg: "rgba(96,165,250,0.12)", color: "#60a5fa" },
+  work_done: { bg: "rgba(251,191,36,0.12)", color: "#fbbf24" },
+  completed: { bg: "rgba(74,222,128,0.12)", color: "#4ade80" },
+  rated: { bg: "rgba(251,191,36,0.12)", color: "#fbbf24" },
+  payment_dispute: { bg: "rgba(248,113,113,0.12)", color: "#f87171" },
 };
 
-// ── Notification Toast ────────────────────────────────────────
+// ── Toast ──────────────────────────────────────────────────────
 function Toast({ notif, onDismiss }) {
   useEffect(() => {
-    const t = setTimeout(onDismiss, 6000);
+    const t = setTimeout(onDismiss, 7000);
     return () => clearTimeout(t);
   }, [onDismiss]);
-
   return (
     <div
       style={{
         position: "fixed",
         top: 20,
         right: 20,
-        zIndex: 300,
+        zIndex: 999,
         background: "#1a1a1a",
-        border: "1px solid rgba(200,241,53,0.3)",
+        border: "1px solid rgba(200,241,53,0.35)",
         borderRadius: 14,
         padding: "14px 18px",
-        maxWidth: 340,
-        boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+        maxWidth: 380,
+        boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
       }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+      <style>{`@keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}`}</style>
+      <div
+        style={{ display: "flex", gap: 10, animation: "slideIn 0.25s ease" }}
+      >
         <div
           style={{
-            width: 8,
-            height: 8,
+            width: 10,
+            height: 10,
             borderRadius: "50%",
             background: "#c8f135",
             flexShrink: 0,
             marginTop: 5,
           }}
         />
-        <div>
+        <div style={{ flex: 1 }}>
           <div
             style={{
-              fontSize: 13,
-              fontWeight: 600,
+              fontSize: 13.5,
+              fontWeight: 700,
               color: "#fff",
               marginBottom: 3,
             }}
           >
             {notif.title}
           </div>
-          <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.5)" }}>
+          <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.55)" }}>
             {notif.message}
           </div>
         </div>
@@ -109,10 +116,8 @@ function Toast({ notif, onDismiss }) {
             border: "none",
             color: "rgba(255,255,255,0.3)",
             cursor: "pointer",
-            fontSize: 16,
+            fontSize: 18,
             lineHeight: 1,
-            marginLeft: "auto",
-            flexShrink: 0,
           }}
         >
           ×
@@ -122,24 +127,24 @@ function Toast({ notif, onDismiss }) {
   );
 }
 
-// ── OTP Verify Modal (client enters OTP to confirm worker arrival) ──
-function OtpModal({ job, onClose, onVerified }) {
+// ── Completion OTP Modal (client enters code from worker) ─────
+function CompletionOtpModal({ job, onClose, onVerified }) {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleVerify = async () => {
+  const handle = async () => {
     if (otp.length !== 4) {
       setError("Enter the 4-digit code.");
       return;
     }
     setLoading(true);
     try {
-      await api.post(`/jobs/${job._id}/verify-arrival`, { otp });
+      await api.post(`/jobs/${job._id}/verify-completion`, { otp });
       onVerified();
       onClose();
-    } catch (err) {
-      setError(err.response?.data?.message || "Invalid OTP");
+    } catch (e) {
+      setError(e.response?.data?.message || "Incorrect code.");
     } finally {
       setLoading(false);
     }
@@ -150,8 +155,8 @@ function OtpModal({ job, onClose, onVerified }) {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.8)",
-        zIndex: 200,
+        background: "rgba(0,0,0,0.85)",
+        zIndex: 300,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -161,7 +166,7 @@ function OtpModal({ job, onClose, onVerified }) {
       <div
         style={{
           background: "#1a1a1a",
-          border: "1px solid rgba(255,255,255,0.1)",
+          border: "1px solid rgba(74,222,128,0.3)",
           borderRadius: 20,
           padding: 28,
           width: "100%",
@@ -169,7 +174,7 @@ function OtpModal({ job, onClose, onVerified }) {
           textAlign: "center",
         }}
       >
-        <div style={{ fontSize: 40, marginBottom: 12 }}>🔑</div>
+        <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
         <div
           style={{
             fontFamily: "'Syne',sans-serif",
@@ -179,17 +184,18 @@ function OtpModal({ job, onClose, onVerified }) {
             marginBottom: 6,
           }}
         >
-          Worker Arrived?
+          Confirm Job Completion
         </div>
         <div
           style={{
             fontSize: 13,
             color: "rgba(255,255,255,0.4)",
             marginBottom: 24,
+            lineHeight: 1.6,
           }}
         >
-          Enter the 4-digit code the worker shows you to verify their arrival
-          and start the job.
+          The worker has shared a 4-digit code. Enter it to confirm the job is
+          done and payment is complete.
         </div>
         <input
           value={otp}
@@ -202,8 +208,8 @@ function OtpModal({ job, onClose, onVerified }) {
           style={{
             width: "100%",
             textAlign: "center",
-            fontSize: 28,
-            letterSpacing: 12,
+            fontSize: 32,
+            letterSpacing: 16,
             fontWeight: 700,
             background: "rgba(255,255,255,0.06)",
             border: `1px solid ${error ? "#f87171" : "rgba(255,255,255,0.1)"}`,
@@ -240,12 +246,12 @@ function OtpModal({ job, onClose, onVerified }) {
             Cancel
           </button>
           <button
-            onClick={handleVerify}
+            onClick={handle}
             disabled={loading || otp.length !== 4}
             style={{
               flex: 2,
               padding: "11px",
-              background: otp.length === 4 ? "#c8f135" : "rgba(200,241,53,0.3)",
+              background: otp.length === 4 ? "#4ade80" : "rgba(74,222,128,0.3)",
               border: "none",
               borderRadius: 10,
               color: "#0d0d0d",
@@ -255,7 +261,7 @@ function OtpModal({ job, onClose, onVerified }) {
               fontFamily: "'Manrope',sans-serif",
             }}
           >
-            {loading ? "Verifying…" : "Verify & Start Job"}
+            {loading ? "Verifying…" : "Confirm & Close Job"}
           </button>
         </div>
       </div>
@@ -263,7 +269,7 @@ function OtpModal({ job, onClose, onVerified }) {
   );
 }
 
-// ── Feedback Modal ────────────────────────────────────────────
+// ── Feedback Modal ─────────────────────────────────────────────
 function FeedbackModal({ job, onClose, onSubmit }) {
   const [form, setForm] = useState({
     rating: 0,
@@ -296,7 +302,7 @@ function FeedbackModal({ job, onClose, onSubmit }) {
             key={s}
             onClick={() => setForm((p) => ({ ...p, [field]: s }))}
             style={{
-              fontSize: 26,
+              fontSize: 28,
               cursor: "pointer",
               color: form[field] >= s ? "#fbbf24" : "rgba(255,255,255,0.12)",
               transition: "color 0.1s",
@@ -309,13 +315,13 @@ function FeedbackModal({ job, onClose, onSubmit }) {
     </div>
   );
 
-  const handleSubmit = async () => {
+  const handle = async () => {
     if (!form.rating) {
-      setError("Overall rating is required.");
+      setError("Overall rating required.");
       return;
     }
     if (form.wouldRecommend === null) {
-      setError("Please select whether you'd recommend this worker.");
+      setError("Please select whether you'd recommend.");
       return;
     }
     setSaving(true);
@@ -334,8 +340,8 @@ function FeedbackModal({ job, onClose, onSubmit }) {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.8)",
-        zIndex: 200,
+        background: "rgba(0,0,0,0.85)",
+        zIndex: 300,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -372,14 +378,12 @@ function FeedbackModal({ job, onClose, onSubmit }) {
             marginBottom: 24,
           }}
         >
-          Your feedback helps other clients and improves the worker's profile.
+          Your feedback appears on their profile and helps other clients.
         </div>
-
         <Stars field="rating" label="Overall Rating *" />
         <Stars field="jobQuality" label="Job Quality" />
         <Stars field="timeliness" label="Timeliness" />
         <Stars field="communication" label="Communication" />
-
         <div style={{ marginBottom: 16 }}>
           <div
             style={{
@@ -414,7 +418,7 @@ function FeedbackModal({ job, onClose, onSubmit }) {
                     form.wouldRecommend === v
                       ? "#c8f135"
                       : "rgba(255,255,255,0.5)",
-                  fontSize: 13.5,
+                  fontSize: 13,
                   fontWeight: 600,
                   cursor: "pointer",
                   fontFamily: "'Manrope',sans-serif",
@@ -426,7 +430,6 @@ function FeedbackModal({ job, onClose, onSubmit }) {
             ))}
           </div>
         </div>
-
         <div style={{ marginBottom: 16 }}>
           <div
             style={{
@@ -462,13 +465,11 @@ function FeedbackModal({ job, onClose, onSubmit }) {
             }}
           />
         </div>
-
         {error && (
           <div style={{ fontSize: 12, color: "#f87171", marginBottom: 12 }}>
             {error}
           </div>
         )}
-
         <div style={{ display: "flex", gap: 10 }}>
           <button
             onClick={onClose}
@@ -488,7 +489,7 @@ function FeedbackModal({ job, onClose, onSubmit }) {
             Cancel
           </button>
           <button
-            onClick={handleSubmit}
+            onClick={handle}
             disabled={saving}
             style={{
               flex: 2,
@@ -511,9 +512,9 @@ function FeedbackModal({ job, onClose, onSubmit }) {
   );
 }
 
-// ── Progress Bar ──────────────────────────────────────────────
+// ── Progress Bar ───────────────────────────────────────────────
 function ETABar({ job }) {
-  const steps = ["Booked", "Accepted", "En Route", "Work Started", "Done"];
+  const steps = ["Booked", "Accepted", "En Route", "Working", "Done"];
   const idx =
     {
       pending: 0,
@@ -521,6 +522,7 @@ function ETABar({ job }) {
       accepted: 1,
       ongoing: 2,
       verified: 3,
+      work_done: 4,
       completed: 4,
       rated: 4,
     }[job.status] || 0;
@@ -539,7 +541,7 @@ function ETABar({ job }) {
         style={{
           display: "flex",
           justifyContent: "space-between",
-          marginBottom: 10,
+          marginBottom: 8,
         }}
       >
         <span
@@ -562,7 +564,7 @@ function ETABar({ job }) {
           height: 5,
           borderRadius: 5,
           background: "rgba(255,255,255,0.07)",
-          marginBottom: 12,
+          marginBottom: 10,
           overflow: "hidden",
         }}
       >
@@ -639,16 +641,14 @@ function ETABar({ job }) {
   );
 }
 
-// ── Negotiate Chat (5-min timer) ──────────────────────────────
+// ── Negotiation Chat (client side) ─────────────────────────────
 function NegotiateChat({ job, onClose, onRefresh }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
   const bottomRef = useRef();
-  const lang = getClientLang();
 
-  // Countdown timer
   useEffect(() => {
     if (!job.negotiationExpiry) return;
     const update = () => {
@@ -662,7 +662,7 @@ function NegotiateChat({ job, onClose, onRefresh }) {
     update();
     const t = setInterval(update, 1000);
     return () => clearInterval(t);
-  }, [job.negotiationExpiry, onClose, onRefresh]);
+  }, [job.negotiationExpiry]);
 
   useEffect(() => {
     api
@@ -670,7 +670,6 @@ function NegotiateChat({ job, onClose, onRefresh }) {
       .then((r) => setMessages(r.data || []))
       .catch(() => {});
   }, [job._id]);
-
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -681,7 +680,7 @@ function NegotiateChat({ job, onClose, onRefresh }) {
     try {
       const r = await api.post(`/messages/${job._id}`, {
         text: content,
-        targetLang: lang,
+        targetLang: "en",
       });
       setMessages((p) => [...p, r.data]);
       setText("");
@@ -692,17 +691,17 @@ function NegotiateChat({ job, onClose, onRefresh }) {
     }
   };
 
-  const mins = Math.floor(timeLeft / 60000);
-  const secs = Math.floor((timeLeft % 60000) / 1000);
-  const urgent = timeLeft < 60000;
+  const mins = Math.floor(timeLeft / 60000),
+    secs = Math.floor((timeLeft % 60000) / 1000);
+  const urgent = timeLeft < 60000 && timeLeft > 0;
 
   return (
     <div
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.75)",
-        zIndex: 200,
+        background: "rgba(0,0,0,0.8)",
+        zIndex: 300,
         display: "flex",
         alignItems: "flex-end",
         justifyContent: "flex-end",
@@ -712,20 +711,22 @@ function NegotiateChat({ job, onClose, onRefresh }) {
       <div
         style={{
           width: "100%",
-          maxWidth: 420,
-          height: "70vh",
+          maxWidth: 440,
+          height: "72vh",
           background: "#141414",
-          border: "1px solid rgba(255,255,255,0.1)",
+          border: "2px solid rgba(167,139,250,0.4)",
           borderRadius: 20,
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
+          boxShadow: "0 0 40px rgba(167,139,250,0.15)",
         }}
       >
         <div
           style={{
-            padding: "14px 18px",
-            borderBottom: "1px solid rgba(255,255,255,0.07)",
+            padding: "16px 20px",
+            background: "rgba(167,139,250,0.12)",
+            borderBottom: "2px solid rgba(167,139,250,0.3)",
             flexShrink: 0,
           }}
         >
@@ -734,30 +735,34 @@ function NegotiateChat({ job, onClose, onRefresh }) {
               <div
                 style={{
                   fontFamily: "'Syne',sans-serif",
-                  fontSize: 14,
-                  fontWeight: 700,
+                  fontSize: 15,
+                  fontWeight: 800,
                   color: "#fff",
                 }}
               >
-                Negotiation Chat
+                💬 Negotiation Chat
               </div>
-              <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.3)" }}>
-                with {job.workerId?.name}
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "rgba(167,139,250,0.8)",
+                  fontWeight: 600,
+                }}
+              >
+                with {job.workerId?.name} — discuss price & terms
               </div>
             </div>
-            {/* Timer */}
             <div
               style={{
-                padding: "5px 12px",
+                padding: "6px 14px",
                 borderRadius: 20,
                 background: urgent
-                  ? "rgba(248,113,113,0.15)"
-                  : "rgba(200,241,53,0.1)",
-                border: `1px solid ${urgent ? "rgba(248,113,113,0.3)" : "rgba(200,241,53,0.2)"}`,
-                color: urgent ? "#f87171" : "#c8f135",
-                fontSize: 13,
-                fontWeight: 700,
-                fontFamily: "'Syne',sans-serif",
+                  ? "rgba(248,113,113,0.2)"
+                  : "rgba(167,139,250,0.2)",
+                border: `1.5px solid ${urgent ? "#f87171" : "#a78bfa"}`,
+                color: urgent ? "#f87171" : "#a78bfa",
+                fontSize: 14,
+                fontWeight: 800,
               }}
             >
               {mins}:{secs.toString().padStart(2, "0")}
@@ -780,16 +785,19 @@ function NegotiateChat({ job, onClose, onRefresh }) {
             <div
               style={{
                 marginTop: 8,
-                fontSize: 12,
+                fontSize: 12.5,
                 color: "#f87171",
+                fontWeight: 600,
                 textAlign: "center",
+                padding: "6px",
+                background: "rgba(248,113,113,0.1)",
+                borderRadius: 8,
               }}
             >
-              ⚠ Chat closing soon — please decide to accept or reject.
+              ⚠ Less than 1 minute! Please decide to accept or reject.
             </div>
           )}
         </div>
-
         <div
           style={{
             flex: 1,
@@ -810,7 +818,7 @@ function NegotiateChat({ job, onClose, onRefresh }) {
                 marginTop: 30,
               }}
             >
-              Worker will chat here to negotiate. Check back or reply.
+              Worker will message here. Reply to discuss terms.
             </div>
           )}
           {messages.map((m, i) => {
@@ -827,8 +835,8 @@ function NegotiateChat({ job, onClose, onRefresh }) {
               >
                 <div
                   style={{
-                    width: 26,
-                    height: 26,
+                    width: 28,
+                    height: 28,
                     borderRadius: "50%",
                     background: isMe
                       ? "linear-gradient(135deg,#f97316,#ec4899)"
@@ -836,7 +844,7 @@ function NegotiateChat({ job, onClose, onRefresh }) {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: 9,
+                    fontSize: 10,
                     fontWeight: 700,
                     color: "#fff",
                     flexShrink: 0,
@@ -847,39 +855,27 @@ function NegotiateChat({ job, onClose, onRefresh }) {
                 <div style={{ maxWidth: "70%" }}>
                   <div
                     style={{
-                      padding: "9px 13px",
+                      padding: "10px 14px",
                       borderRadius: isMe
                         ? "14px 14px 4px 14px"
                         : "14px 14px 14px 4px",
-                      background: isMe ? "#c8f135" : "rgba(255,255,255,0.07)",
-                      fontSize: 13,
+                      background: isMe ? "#c8f135" : "rgba(255,255,255,0.09)",
+                      fontSize: 13.5,
                       color: isMe ? "#0d0d0d" : "#fff",
                       lineHeight: 1.5,
                     }}
                   >
                     {m.translatedText || m.text}
                   </div>
-                  {m.translatedText && m.text !== m.translatedText && (
-                    <div
-                      style={{
-                        fontSize: 10.5,
-                        color: "rgba(255,255,255,0.22)",
-                        marginTop: 2,
-                      }}
-                    >
-                      Original: {m.text}
-                    </div>
-                  )}
                 </div>
               </div>
             );
           })}
           <div ref={bottomRef} />
         </div>
-
         <div
           style={{
-            padding: "10px 14px",
+            padding: "12px 16px",
             borderTop: "1px solid rgba(255,255,255,0.07)",
             display: "flex",
             gap: 7,
@@ -889,14 +885,14 @@ function NegotiateChat({ job, onClose, onRefresh }) {
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && send(text)}
+            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send(text)}
             placeholder="Reply to worker…"
             style={{
               flex: 1,
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.1)",
+              background: "rgba(255,255,255,0.07)",
+              border: "1px solid rgba(167,139,250,0.2)",
               borderRadius: 9,
-              padding: "9px 13px",
+              padding: "10px 14px",
               color: "#fff",
               fontSize: 13,
               fontFamily: "'Manrope',sans-serif",
@@ -907,8 +903,8 @@ function NegotiateChat({ job, onClose, onRefresh }) {
             onClick={() => send(text)}
             disabled={!text.trim() || sending}
             style={{
-              width: 38,
-              height: 38,
+              width: 40,
+              height: 40,
               borderRadius: 9,
               border: "none",
               background: text.trim() ? "#c8f135" : "rgba(255,255,255,0.07)",
@@ -924,7 +920,7 @@ function NegotiateChat({ job, onClose, onRefresh }) {
               fill="none"
               stroke="currentColor"
               strokeWidth="2.5"
-              style={{ width: 14, height: 14 }}
+              style={{ width: 15, height: 15 }}
             >
               <line x1="22" y1="2" x2="11" y2="13" />
               <polygon points="22 2 15 22 11 13 2 9 22 2" />
@@ -936,15 +932,25 @@ function NegotiateChat({ job, onClose, onRefresh }) {
   );
 }
 
-// ── Main Component ────────────────────────────────────────────
+const PAYMENT_LABELS = {
+  cash: "💵 Cash",
+  upi: "📱 UPI",
+  bank_transfer: "🏦 Bank Transfer",
+};
+
+// ── Main ───────────────────────────────────────────────────────
 export default function MyJobs() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("active");
+  const [tab, setTab] = useState("new");
   const [chatJob, setChatJob] = useState(null);
-  const [otpJob, setOtpJob] = useState(null);
+  const [completionJob, setCompletionJob] = useState(null); // client enters completion OTP
   const [feedbackJob, setFeedbackJob] = useState(null);
   const [notif, setNotif] = useState(null);
+  // ✅ Store arrival OTPs per job so they stay visible on screen
+  const [arrivalOtps, setArrivalOtps] = useState({});
+  // ✅ Store completion OTPs per job
+  const [completionOtps, setCompletionOtps] = useState({});
   const navigate = useNavigate();
 
   const fetchJobs = useCallback(() => {
@@ -959,43 +965,70 @@ export default function MyJobs() {
     fetchJobs();
   }, [fetchJobs]);
 
-  // Socket notifications
   useEffect(() => {
     const socket = getSocket();
-
-    socket.on("job_accepted", (data) => {
-      setNotif({ title: "Job Accepted! 🎉", message: data.message });
+    socket.on("job_accepted", (d) => {
+      setNotif({ title: "Job Accepted! 🎉", message: d.message });
       fetchJobs();
     });
-    socket.on("job_rejected", (data) => {
-      setNotif({ title: "Job Declined", message: data.message });
+    socket.on("job_rejected", (d) => {
+      setNotif({ title: "Job Declined", message: d.message });
       fetchJobs();
     });
-    socket.on("negotiation_started", (data) => {
+    socket.on("negotiation_started", (d) => {
+      setNotif({ title: "⚡ Worker wants to negotiate!", message: d.message });
+      fetchJobs();
+      setTab("negotiating");
+    });
+    // ✅ Arrival OTP comes to CLIENT — store it so it stays visible
+    socket.on("arrival_otp", (d) => {
       setNotif({
-        title: "Worker wants to negotiate 💬",
-        message: data.message,
+        title: `${d.workerName} is on the way! 🚗`,
+        message:
+          "Your arrival code is ready. Show it to the worker when they arrive.",
       });
+      setArrivalOtps((prev) => ({ ...prev, [d.jobId]: d.otp }));
+      fetchJobs();
+      setTab("active");
+    });
+    socket.on("arrival_verified", (d) => {
+      setNotif({ title: "Worker arrived & verified ✅", message: d.message });
       fetchJobs();
     });
-    socket.on("arrival_otp", (data) => {
+    socket.on("payment_requested", (d) => {
+      setNotif({ title: "💰 Payment Requested", message: d.message });
+      fetchJobs();
+    });
+    // ✅ Completion OTP comes to CLIENT — they enter it
+    socket.on("completion_otp", (d) => {
       setNotif({
-        title: `Worker is on the way! 🚗`,
-        message: `${data.message} — Tap 'Enter OTP' to verify arrival.`,
+        title: "Work Complete! Enter completion code",
+        message: d.message,
       });
+      setCompletionOtps((prev) => ({ ...prev, [d.jobId]: d.otp }));
       fetchJobs();
     });
-    socket.on("job_completed", (data) => {
-      setNotif({ title: "Job Completed ✅", message: data.message });
+    socket.on("payment_dispute", (d) => {
+      setNotif({ title: "⚠ Payment Dispute", message: d.message });
+      fetchJobs();
+    });
+    socket.on("job_completed", (d) => {
+      setNotif({ title: "Job Closed ✅", message: d.message });
       fetchJobs();
     });
 
     return () => {
-      socket.off("job_accepted");
-      socket.off("job_rejected");
-      socket.off("negotiation_started");
-      socket.off("arrival_otp");
-      socket.off("job_completed");
+      [
+        "job_accepted",
+        "job_rejected",
+        "negotiation_started",
+        "arrival_otp",
+        "arrival_verified",
+        "payment_requested",
+        "completion_otp",
+        "payment_dispute",
+        "job_completed",
+      ].forEach((e) => socket.off(e));
     };
   }, [fetchJobs]);
 
@@ -1003,16 +1036,8 @@ export default function MyJobs() {
     await api.post(`/jobs/${jobId}/feedback`, form);
     fetchJobs();
   };
-
-  const active = jobs.filter((j) =>
-    ["pending", "negotiating", "accepted", "ongoing", "verified"].includes(
-      j.status,
-    ),
-  );
-  const past = jobs.filter((j) =>
-    ["completed", "rejected", "rated"].includes(j.status),
-  );
-  const shown = tab === "active" ? active : past;
+  const getSectionJobs = (section) =>
+    jobs.filter((j) => section.statuses.includes(j.status));
 
   const card = {
     background: "#1a1a1a",
@@ -1023,8 +1048,12 @@ export default function MyJobs() {
   };
 
   return (
-    <div style={{ maxWidth: 680, fontFamily: "'Manrope',sans-serif" }}>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    <div style={{ maxWidth: 720, fontFamily: "'Manrope',sans-serif" }}>
+      <style>{`
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+        @keyframes blink{0%,100%{opacity:1}50%{opacity:0.6}}
+      `}</style>
 
       {notif && <Toast notif={notif} onDismiss={() => setNotif(null)} />}
       {chatJob && (
@@ -1034,10 +1063,10 @@ export default function MyJobs() {
           onRefresh={fetchJobs}
         />
       )}
-      {otpJob && (
-        <OtpModal
-          job={otpJob}
-          onClose={() => setOtpJob(null)}
+      {completionJob && (
+        <CompletionOtpModal
+          job={completionJob}
+          onClose={() => setCompletionJob(null)}
           onVerified={fetchJobs}
         />
       )}
@@ -1062,44 +1091,59 @@ export default function MyJobs() {
           My Jobs
         </h2>
         <p style={{ fontSize: 13, color: "rgba(255,255,255,0.32)" }}>
-          Track bookings, verify arrivals, and leave reviews.
+          Track bookings from request to completion.
         </p>
       </div>
 
+      {/* 4 tabs */}
       <div
-        style={{
-          display: "flex",
-          gap: 6,
-          marginBottom: 20,
-          background: "rgba(255,255,255,0.04)",
-          padding: 4,
-          borderRadius: 12,
-          width: "fit-content",
-        }}
+        style={{ display: "flex", gap: 6, marginBottom: 24, flexWrap: "wrap" }}
       >
-        {[
-          { id: "active", label: `Active (${active.length})` },
-          { id: "past", label: `Past (${past.length})` },
-        ].map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            style={{
-              padding: "8px 18px",
-              borderRadius: 9,
-              border: "none",
-              fontFamily: "'Manrope',sans-serif",
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: "pointer",
-              background: tab === t.id ? "#c8f135" : "transparent",
-              color: tab === t.id ? "#0d0d0d" : "rgba(255,255,255,0.4)",
-              transition: "all 0.15s",
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
+        {SECTIONS.map((section) => {
+          const count = getSectionJobs(section).length;
+          const isActive = tab === section.id;
+          return (
+            <button
+              key={section.id}
+              onClick={() => setTab(section.id)}
+              style={{
+                padding: "8px 18px",
+                borderRadius: 20,
+                border: `1.5px solid ${isActive ? section.color : "rgba(255,255,255,0.1)"}`,
+                background: isActive
+                  ? `${section.color}18`
+                  : "rgba(255,255,255,0.03)",
+                color: isActive ? section.color : "rgba(255,255,255,0.4)",
+                fontFamily: "'Manrope',sans-serif",
+                fontSize: 13,
+                fontWeight: isActive ? 700 : 500,
+                cursor: "pointer",
+                transition: "all 0.15s",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              {section.label}
+              {count > 0 && (
+                <span
+                  style={{
+                    background: isActive
+                      ? section.color
+                      : "rgba(255,255,255,0.1)",
+                    color: isActive ? "#0d0d0d" : "rgba(255,255,255,0.5)",
+                    borderRadius: 20,
+                    padding: "1px 7px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                  }}
+                >
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {loading ? (
@@ -1123,395 +1167,682 @@ export default function MyJobs() {
           />
           Loading…
         </div>
-      ) : shown.length === 0 ? (
-        <div style={{ ...card, textAlign: "center", padding: "44px 24px" }}>
-          <div style={{ fontSize: 30, marginBottom: 12 }}>
-            {tab === "active" ? "📋" : "📁"}
-          </div>
-          <div
-            style={{
-              fontFamily: "'Syne',sans-serif",
-              fontSize: 16,
-              fontWeight: 700,
-              color: "#fff",
-              marginBottom: 6,
-            }}
-          >
-            No {tab} jobs
-          </div>
-          <div
-            style={{
-              fontSize: 13,
-              color: "rgba(255,255,255,0.3)",
-              marginBottom: 20,
-            }}
-          >
-            {tab === "active"
-              ? "Book a service to get started."
-              : "Completed jobs appear here."}
-          </div>
-          {tab === "active" && (
-            <button
-              onClick={() => navigate("/client/browse-all")}
-              style={{
-                background: "#c8f135",
-                color: "#0d0d0d",
-                border: "none",
-                borderRadius: 10,
-                padding: "11px 24px",
-                fontSize: 13.5,
-                fontWeight: 700,
-                cursor: "pointer",
-                fontFamily: "'Manrope',sans-serif",
-              }}
-            >
-              Browse Workers
-            </button>
-          )}
-        </div>
       ) : (
-        shown.map((job) => {
-          const st = STATUS[job.status] || STATUS.pending;
-          const isNegotiating = job.status === "negotiating";
-          const isActive = ["accepted", "ongoing", "verified"].includes(
-            job.status,
-          );
-          const isOngoing = job.status === "ongoing";
-          const canVerify = job.status === "ongoing" && !job.arrivalVerified;
-          const canFeedback =
-            job.status === "completed" && !job.feedback?.rating;
-          const canChat = isActive || isNegotiating;
-          const workerName = job.workerId?.name || "Worker";
-
-          return (
-            <div key={job._id} style={card}>
+        (() => {
+          const currentSection = SECTIONS.find((s) => s.id === tab);
+          const shown = getSectionJobs(currentSection);
+          if (shown.length === 0)
+            return (
               <div
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  marginBottom: 14,
-                }}
+                style={{ ...card, textAlign: "center", padding: "44px 24px" }}
               >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontFamily: "'Syne',sans-serif",
-                      fontSize: 15,
-                      fontWeight: 700,
-                      color: "#fff",
-                      marginBottom: 4,
-                      wordBreak: "break-word",
-                    }}
-                  >
-                    {job.description?.slice(0, 80)}
-                    {job.description?.length > 80 ? "…" : ""}
-                  </div>
-                  <div
-                    style={{ fontSize: 12.5, color: "rgba(255,255,255,0.35)" }}
-                  >
-                    Worker:{" "}
-                    <span
-                      style={{
-                        color: "rgba(255,255,255,0.7)",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {workerName}
-                    </span>
-                  </div>
+                <div style={{ fontSize: 30, marginBottom: 12 }}>
+                  {tab === "new"
+                    ? "📋"
+                    : tab === "negotiating"
+                      ? "💬"
+                      : tab === "active"
+                        ? "🔨"
+                        : "📁"}
                 </div>
-                <span
+                <div
                   style={{
-                    padding: "4px 12px",
-                    borderRadius: 20,
-                    fontSize: 11.5,
-                    fontWeight: 600,
-                    background: st.bg,
-                    color: st.color,
-                    flexShrink: 0,
-                    whiteSpace: "nowrap",
+                    fontFamily: "'Syne',sans-serif",
+                    fontSize: 16,
+                    fontWeight: 700,
+                    color: "#fff",
+                    marginBottom: 6,
                   }}
                 >
-                  {st.label}
-                </span>
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 10,
-                  marginBottom: 0,
-                }}
-              >
-                {job.price && (
-                  <div
+                  No {currentSection.label.toLowerCase()} jobs
+                </div>
+                <div
+                  style={{
+                    fontSize: 13,
+                    color: "rgba(255,255,255,0.3)",
+                    marginBottom: tab === "new" ? 20 : 0,
+                  }}
+                >
+                  {tab === "new"
+                    ? "Send a job request to a worker to get started."
+                    : tab === "negotiating"
+                      ? "When a worker wants to negotiate, it appears here."
+                      : tab === "active"
+                        ? "Accepted and ongoing work appears here."
+                        : "Completed and rejected jobs appear here."}
+                </div>
+                {tab === "new" && (
+                  <button
+                    onClick={() => navigate("/client/browse-all")}
                     style={{
-                      background: "rgba(255,255,255,0.04)",
+                      background: "#c8f135",
+                      color: "#0d0d0d",
+                      border: "none",
                       borderRadius: 10,
-                      padding: "10px 14px",
+                      padding: "11px 24px",
+                      fontSize: 13.5,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      fontFamily: "'Manrope',sans-serif",
                     }}
                   >
+                    Browse Workers
+                  </button>
+                )}
+              </div>
+            );
+
+          return shown.map((job) => {
+            const st = STATUS_COLOR[job.status] || STATUS_COLOR.pending;
+            const workerName = job.workerId?.name || "Worker";
+            const isNeg = job.status === "negotiating";
+            const isActive = ["accepted", "ongoing", "verified"].includes(
+              job.status,
+            );
+            const isOngoing = job.status === "ongoing"; // worker en route
+            const isVerified = job.status === "verified"; // work in progress
+            const isWorkDone = job.status === "work_done"; // worker done, awaiting payment
+            const isDispute = job.status === "payment_dispute";
+            const canFeedback =
+              job.status === "completed" && !job.feedback?.rating;
+            // ✅ Arrival OTP: client shows it to arriving worker
+            const arrivalOtp = arrivalOtps[job._id] || job.arrivalOtp;
+            // ✅ Completion OTP: client enters it when worker shows it
+            const completionOtp = completionOtps[job._id];
+
+            return (
+              <div
+                key={job._id}
+                style={{
+                  ...card,
+                  border: isNeg
+                    ? "2px solid rgba(167,139,250,0.35)"
+                    : isDispute
+                      ? "2px solid rgba(248,113,113,0.4)"
+                      : card.border,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    marginBottom: 14,
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div
                       style={{
-                        fontSize: 10,
-                        fontWeight: 600,
-                        color: "rgba(255,255,255,0.28)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.1em",
-                        marginBottom: 3,
+                        fontFamily: "'Syne',sans-serif",
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: "#fff",
+                        marginBottom: 4,
+                        wordBreak: "break-word",
                       }}
                     >
-                      Price
+                      {job.description?.slice(0, 80)}
+                      {job.description?.length > 80 ? "…" : ""}
                     </div>
                     <div
                       style={{
-                        fontSize: 16,
-                        fontWeight: 700,
-                        color: "#c8f135",
-                        fontFamily: "'Syne',sans-serif",
+                        fontSize: 12.5,
+                        color: "rgba(255,255,255,0.35)",
                       }}
                     >
-                      ₹{job.price}
+                      Worker:{" "}
+                      <span
+                        style={{
+                          color: "rgba(255,255,255,0.7)",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {workerName}
+                      </span>
+                      {job.paymentMethod && (
+                        <span
+                          style={{
+                            marginLeft: 12,
+                            color: "rgba(255,255,255,0.4)",
+                          }}
+                        >
+                          {PAYMENT_LABELS[job.paymentMethod] ||
+                            job.paymentMethod}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <span
+                    style={{
+                      padding: "5px 13px",
+                      borderRadius: 20,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      background: st.bg,
+                      color: st.color,
+                      flexShrink: 0,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {STATUS_LABEL[job.status] || job.status}
+                  </span>
+                </div>
+
+                {/* Price + Location */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "120px 1fr",
+                    gap: 10,
+                    marginBottom: 14,
+                  }}
+                >
+                  {job.price && (
+                    <div
+                      style={{
+                        background: "rgba(255,255,255,0.04)",
+                        borderRadius: 10,
+                        padding: "10px 14px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 600,
+                          color: "rgba(255,255,255,0.28)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.1em",
+                          marginBottom: 3,
+                        }}
+                      >
+                        Price
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 16,
+                          fontWeight: 700,
+                          color: "#c8f135",
+                          fontFamily: "'Syne',sans-serif",
+                        }}
+                      >
+                        ₹{job.price}
+                      </div>
+                    </div>
+                  )}
+                  {job.location && (
+                    <div
+                      style={{
+                        background: "rgba(255,255,255,0.04)",
+                        borderRadius: 10,
+                        padding: "10px 14px",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 600,
+                          color: "rgba(255,255,255,0.28)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.1em",
+                          marginBottom: 3,
+                        }}
+                      >
+                        Location
+                      </div>
+                      {/* ✅ Fix: Location truncated with ellipsis, full on hover via title */}
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "#fff",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                        title={job.location}
+                      >
+                        {job.location}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Pending */}
+                {job.status === "pending" && (
+                  <div
+                    style={{
+                      padding: "10px 14px",
+                      background: "rgba(251,191,36,0.07)",
+                      borderRadius: 10,
+                      border: "1px solid rgba(251,191,36,0.15)",
+                      marginBottom: 10,
+                    }}
+                  >
+                    <div style={{ fontSize: 12.5, color: "#fbbf24" }}>
+                      ⏳ Waiting for {workerName} to respond. You'll be notified
+                      instantly.
                     </div>
                   </div>
                 )}
-                {job.location && (
+
+                {/* Negotiating callout */}
+                {isNeg && (
                   <div
                     style={{
-                      background: "rgba(255,255,255,0.04)",
+                      padding: "12px 16px",
+                      background: "rgba(167,139,250,0.1)",
                       borderRadius: 10,
-                      padding: "10px 14px",
+                      border: "2px solid rgba(167,139,250,0.3)",
+                      marginBottom: 12,
                     }}
                   >
                     <div
                       style={{
-                        fontSize: 10,
-                        fontWeight: 600,
-                        color: "rgba(255,255,255,0.28)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.1em",
-                        marginBottom: 3,
+                        fontSize: 14,
+                        fontWeight: 800,
+                        color: "#a78bfa",
+                        marginBottom: 4,
                       }}
                     >
-                      Location
+                      💬 {workerName} wants to negotiate!
+                    </div>
+                    <div
+                      style={{ fontSize: 12.5, color: "rgba(167,139,250,0.7)" }}
+                    >
+                      Open the chat below to discuss price and terms. Chat is
+                      open for 5 minutes.
+                    </div>
+                  </div>
+                )}
+
+                {/* Progress bar */}
+                {(isActive ||
+                  ["work_done", "completed", "rated"].includes(job.status)) && (
+                  <ETABar job={job} />
+                )}
+
+                {/* ✅ ARRIVAL OTP: Client shows this to the arriving worker */}
+                {arrivalOtp && isOngoing && !job.arrivalVerified && (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      padding: "18px",
+                      background: "rgba(200,241,53,0.06)",
+                      borderRadius: 14,
+                      border: "2px solid rgba(200,241,53,0.3)",
+                      textAlign: "center",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "rgba(255,255,255,0.5)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.1em",
+                        marginBottom: 6,
+                      }}
+                    >
+                      📱 Show this to the Worker
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: "'Syne',sans-serif",
+                        fontSize: 52,
+                        fontWeight: 900,
+                        letterSpacing: 14,
+                        color: "#c8f135",
+                        padding: "8px 0",
+                        animation: "blink 2s ease infinite",
+                      }}
+                    >
+                      {arrivalOtp}
                     </div>
                     <div
                       style={{
                         fontSize: 13,
-                        color: "#fff",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
+                        color: "rgba(255,255,255,0.4)",
+                        marginTop: 8,
+                        lineHeight: 1.5,
                       }}
                     >
-                      {job.location}
+                      When {workerName} arrives, show them your screen.
+                      <br />
+                      They will enter this code to verify arrival and begin
+                      work.
                     </div>
                   </div>
                 )}
-              </div>
 
-              {/* Pending note */}
-              {job.status === "pending" && (
-                <div
-                  style={{
-                    marginTop: 12,
-                    padding: "10px 14px",
-                    background: "rgba(251,191,36,0.07)",
-                    borderRadius: 10,
-                    border: "1px solid rgba(251,191,36,0.15)",
-                  }}
-                >
-                  <div style={{ fontSize: 12.5, color: "#fbbf24" }}>
-                    ⏳ Waiting for {workerName} to respond. You'll be notified
-                    instantly.
-                  </div>
-                </div>
-              )}
-
-              {/* Negotiating note */}
-              {isNegotiating && (
-                <div
-                  style={{
-                    marginTop: 12,
-                    padding: "10px 14px",
-                    background: "rgba(167,139,250,0.08)",
-                    borderRadius: 10,
-                    border: "1px solid rgba(167,139,250,0.2)",
-                  }}
-                >
-                  <div style={{ fontSize: 12.5, color: "#a78bfa" }}>
-                    💬 {workerName} wants to negotiate. Open chat to discuss the
-                    price.
-                  </div>
-                </div>
-              )}
-
-              {(isActive ||
-                job.status === "completed" ||
-                job.status === "rated") && <ETABar job={job} />}
-
-              {/* Existing feedback display */}
-              {job.feedback?.rating && (
-                <div
-                  style={{
-                    marginTop: 12,
-                    padding: "12px 14px",
-                    background: "rgba(251,191,36,0.06)",
-                    borderRadius: 10,
-                    border: "1px solid rgba(251,191,36,0.12)",
-                  }}
-                >
+                {/* Work in progress */}
+                {isVerified && (
                   <div
                     style={{
-                      fontSize: 11,
-                      color: "rgba(255,255,255,0.35)",
-                      marginBottom: 4,
+                      marginTop: 12,
+                      padding: "12px 14px",
+                      background: "rgba(96,165,250,0.08)",
+                      borderRadius: 10,
+                      border: "1px solid rgba(96,165,250,0.2)",
                     }}
                   >
-                    Your Review
-                  </div>
-                  <span style={{ color: "#fbbf24" }}>
-                    {"★".repeat(job.feedback.rating)}
-                  </span>
-                  {job.feedback.comment && (
-                    <p
+                    <div
                       style={{
-                        fontSize: 12.5,
-                        color: "rgba(255,255,255,0.45)",
-                        marginTop: 4,
-                        marginBottom: 0,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "#60a5fa",
                       }}
                     >
-                      {job.feedback.comment}
-                    </p>
-                  )}
-                </div>
-              )}
+                      🔨 {workerName} is currently working. You'll be notified
+                      when done.
+                    </div>
+                  </div>
+                )}
 
-              {/* Action buttons */}
-              <div
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  marginTop: 14,
-                  flexWrap: "wrap",
-                }}
-              >
-                {canVerify && (
-                  <button
-                    onClick={() => setOtpJob(job)}
+                {/* ✅ Work done — worker generated completion OTP, client enters it */}
+                {isWorkDone && (
+                  <div
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      padding: "9px 16px",
-                      background: "rgba(200,241,53,0.12)",
-                      border: "1px solid rgba(200,241,53,0.25)",
-                      borderRadius: 10,
-                      color: "#c8f135",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      fontFamily: "'Manrope',sans-serif",
+                      marginTop: 12,
+                      padding: "14px 16px",
+                      background: "rgba(251,191,36,0.08)",
+                      borderRadius: 12,
+                      border: "2px solid rgba(251,191,36,0.3)",
                     }}
                   >
-                    🔑 Enter OTP to Verify Arrival
-                  </button>
-                )}
-                {canChat && (
-                  <button
-                    onClick={() => setChatJob(job)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      padding: "9px 16px",
-                      background: "rgba(167,139,250,0.12)",
-                      border: "1px solid rgba(167,139,250,0.25)",
-                      borderRadius: 10,
-                      color: "#a78bfa",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      fontFamily: "'Manrope',sans-serif",
-                    }}
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      style={{ width: 14, height: 14 }}
+                    <div
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 700,
+                        color: "#fbbf24",
+                        marginBottom: 6,
+                      }}
                     >
-                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                    </svg>
-                    {isNegotiating ? "Open Negotiation Chat" : "Chat"}
-                  </button>
+                      💰 {workerName} has completed the work!
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12.5,
+                        color: "rgba(255,255,255,0.5)",
+                        marginBottom: completionOtp ? 12 : 0,
+                      }}
+                    >
+                      Please pay ₹{job.price} via{" "}
+                      {PAYMENT_LABELS[job.paymentMethod] ||
+                        "your agreed method"}
+                      .
+                      {!completionOtp &&
+                        " The worker will share a completion code once payment is confirmed."}
+                    </div>
+                    {completionOtp && (
+                      <div
+                        style={{
+                          background: "rgba(74,222,128,0.08)",
+                          borderRadius: 10,
+                          padding: "12px",
+                          textAlign: "center",
+                          border: "1px solid rgba(74,222,128,0.2)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "rgba(255,255,255,0.4)",
+                            marginBottom: 4,
+                          }}
+                        >
+                          Completion Code Received
+                        </div>
+                        <div
+                          style={{
+                            fontFamily: "'Syne',sans-serif",
+                            fontSize: 36,
+                            fontWeight: 800,
+                            letterSpacing: 10,
+                            color: "#4ade80",
+                          }}
+                        >
+                          {completionOtp}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: "rgba(255,255,255,0.35)",
+                            marginTop: 6,
+                          }}
+                        >
+                          Enter this code below to confirm job completion
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
-                {isActive && job.workerId?.contact && (
-                  <a
-                    href={`tel:${job.workerId.contact}`}
+
+                {/* Payment dispute */}
+                {isDispute && (
+                  <div
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      padding: "9px 16px",
-                      background: "rgba(34,197,94,0.1)",
-                      border: "1px solid rgba(34,197,94,0.2)",
+                      marginTop: 12,
+                      padding: "12px 16px",
+                      background: "rgba(248,113,113,0.08)",
                       borderRadius: 10,
-                      color: "#4ade80",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      textDecoration: "none",
-                      fontFamily: "'Manrope',sans-serif",
+                      border: "2px solid rgba(248,113,113,0.3)",
                     }}
                   >
-                    📞 Call
-                  </a>
+                    <div
+                      style={{
+                        fontSize: 13.5,
+                        fontWeight: 700,
+                        color: "#f87171",
+                        marginBottom: 4,
+                      }}
+                    >
+                      ⚠️ Payment Dispute Escalated
+                    </div>
+                    <div
+                      style={{ fontSize: 12.5, color: "rgba(255,255,255,0.5)" }}
+                    >
+                      Payment was not confirmed within 10 minutes. This dispute
+                      has been flagged. Please resolve with the worker or
+                      contact support.
+                    </div>
+                  </div>
                 )}
-                {canFeedback && (
-                  <button
-                    onClick={() => setFeedbackJob(job)}
+
+                {/* Existing feedback */}
+                {job.feedback?.rating && (
+                  <div
                     style={{
-                      padding: "9px 16px",
-                      background: "#c8f135",
-                      border: "none",
+                      marginTop: 12,
+                      padding: "12px 14px",
+                      background: "rgba(251,191,36,0.06)",
                       borderRadius: 10,
-                      color: "#0d0d0d",
-                      fontSize: 13,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      fontFamily: "'Manrope',sans-serif",
+                      border: "1px solid rgba(251,191,36,0.12)",
                     }}
                   >
-                    ★ Leave Review
-                  </button>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "rgba(255,255,255,0.35)",
+                        marginBottom: 4,
+                      }}
+                    >
+                      Your Review
+                    </div>
+                    <span style={{ color: "#fbbf24" }}>
+                      {"★".repeat(job.feedback.rating)}
+                    </span>
+                    {job.feedback.comment && (
+                      <p
+                        style={{
+                          fontSize: 12.5,
+                          color: "rgba(255,255,255,0.45)",
+                          marginTop: 4,
+                          marginBottom: 0,
+                        }}
+                      >
+                        {job.feedback.comment}
+                      </p>
+                    )}
+                  </div>
                 )}
-                <button
-                  onClick={() =>
-                    navigate(`/client/worker/${job.workerId?._id}`)
-                  }
+
+                {/* Action Buttons */}
+                <div
                   style={{
-                    padding: "9px 14px",
-                    background: "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(255,255,255,0.09)",
-                    borderRadius: 10,
-                    color: "rgba(255,255,255,0.5)",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    fontFamily: "'Manrope',sans-serif",
+                    display: "flex",
+                    gap: 8,
+                    marginTop: 14,
+                    flexWrap: "wrap",
                   }}
                 >
-                  View Profile
-                </button>
+                  {isNeg && (
+                    <button
+                      onClick={() => setChatJob(job)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "10px 18px",
+                        background: "rgba(167,139,250,0.2)",
+                        border: "2px solid #a78bfa",
+                        borderRadius: 10,
+                        color: "#a78bfa",
+                        fontSize: 13.5,
+                        fontWeight: 800,
+                        cursor: "pointer",
+                        fontFamily: "'Manrope',sans-serif",
+                        boxShadow: "0 0 12px rgba(167,139,250,0.2)",
+                      }}
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        style={{ width: 15, height: 15 }}
+                      >
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                      </svg>
+                      Open Negotiation Chat
+                    </button>
+                  )}
+
+                  {isActive && (
+                    <button
+                      onClick={() => setChatJob(job)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "9px 16px",
+                        background: "rgba(167,139,250,0.12)",
+                        border: "1px solid rgba(167,139,250,0.25)",
+                        borderRadius: 10,
+                        color: "#a78bfa",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        fontFamily: "'Manrope',sans-serif",
+                      }}
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        style={{ width: 14, height: 14 }}
+                      >
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                      </svg>
+                      Chat
+                    </button>
+                  )}
+
+                  {/* ✅ Client enters completion OTP */}
+                  {isWorkDone && (
+                    <button
+                      onClick={() => setCompletionJob(job)}
+                      style={{
+                        padding: "10px 18px",
+                        background: "rgba(74,222,128,0.15)",
+                        border: "2px solid #4ade80",
+                        borderRadius: 10,
+                        color: "#4ade80",
+                        fontSize: 13.5,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        fontFamily: "'Manrope',sans-serif",
+                      }}
+                    >
+                      ✅ Enter Completion Code
+                    </button>
+                  )}
+
+                  {isActive && job.workerId?.contact && (
+                    <a
+                      href={`tel:${job.workerId.contact}`}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "9px 16px",
+                        background: "rgba(34,197,94,0.1)",
+                        border: "1px solid rgba(34,197,94,0.2)",
+                        borderRadius: 10,
+                        color: "#4ade80",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        textDecoration: "none",
+                        fontFamily: "'Manrope',sans-serif",
+                      }}
+                    >
+                      📞 Call
+                    </a>
+                  )}
+
+                  {canFeedback && (
+                    <button
+                      onClick={() => setFeedbackJob(job)}
+                      style={{
+                        padding: "9px 16px",
+                        background: "#c8f135",
+                        border: "none",
+                        borderRadius: 10,
+                        color: "#0d0d0d",
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        fontFamily: "'Manrope',sans-serif",
+                      }}
+                    >
+                      ★ Leave Review
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() =>
+                      navigate(`/client/worker/${job.workerId?._id}`)
+                    }
+                    style={{
+                      padding: "9px 14px",
+                      background: "rgba(255,255,255,0.05)",
+                      border: "1px solid rgba(255,255,255,0.09)",
+                      borderRadius: 10,
+                      color: "rgba(255,255,255,0.5)",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      fontFamily: "'Manrope',sans-serif",
+                    }}
+                  >
+                    View Profile
+                  </button>
+                </div>
               </div>
-            </div>
-          );
-        })
+            );
+          });
+        })()
       )}
     </div>
   );

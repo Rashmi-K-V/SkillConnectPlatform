@@ -15,24 +15,32 @@ const reviewSchema = new mongoose.Schema({
 }, { _id: true });
 
 const portfolioSchema = new mongoose.Schema({
-  workerId:        { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  videoUrl:        { type: String },
-  description:     { type: String },
-  skills:          { type: [String], default: [] },
-  name:            { type: String },
-  age:             { type: Number },
-  gender:          { type: String, enum: ["Male", "Female", "Other"] },
-  email:           { type: String },
-  contact:         { type: String },
-  experience:      { type: String },
-  pricing:         { type: String },
-  category:        { type: String, enum: ["plumber", "electrician", "cook", "cleaner", "tailor"] },
-  languagesKnown:  { type: [String], default: [] },  // NEW: languages worker speaks
+  workerId:          { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  videoUrl:          { type: String },
+  description:       { type: String },
+  skills:            { type: [String], default: [] },
+  name:              { type: String },
+  age:               { type: Number },
+  gender:            { type: String, enum: ["Male","Female","Other"] },
+  email:             { type: String },
+  contact:           { type: String },
+  experience:        { type: String },
 
-  // Auto-calculated from reviews — worker cannot edit these
-  avgRating:       { type: Number, default: 0 },
-  totalRatings:    { type: Number, default: 0 },
-  reviews:         { type: [reviewSchema], default: [] }, // Client reviews, non-editable
+  // Category and work types
+  category:          { type: String, enum: ["plumber","electrician","cook","cleaner","tailor"] },
+  selectedWorkTypes: { type: [String], default: [] }, // IDs of selected work types
+  priceMin:          { type: Number },                // worker's min price
+  priceMax:          { type: Number },                // worker's max price
+
+  // Legacy single pricing field kept for backward compat
+  pricing:           { type: String },
+
+  languagesKnown:    { type: [String], default: [] },
+
+  // Auto-calculated from client reviews — worker cannot edit
+  avgRating:         { type: Number, default: 0 },
+  totalRatings:      { type: Number, default: 0 },
+  reviews:           { type: [reviewSchema], default: [] },
 }, { timestamps: true });
 
 export default mongoose.model("Portfolio", portfolioSchema);

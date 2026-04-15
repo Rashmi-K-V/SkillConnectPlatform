@@ -1,24 +1,18 @@
-import { createContext, useState, useEffect } from "react";
-import { translations } from "../i18n/translation.js";
+// src/context/LanguageContext.jsx
+import { createContext, useState, useContext } from "react";
+import translations from "../i18n/translation.js";
 
-export const LanguageContext = createContext();
+const LanguageContext = createContext();
 
-const LanguageProvider = ({ children }) => {
+export default function LanguageProvider({ children }) {
   const [lang, setLang] = useState("en");
 
-  // load saved language
-  useEffect(() => {
-    const savedLang = localStorage.getItem("language");
-    if (savedLang) setLang(savedLang);
-  }, []);
-
-  // save language
-  useEffect(() => {
-    localStorage.setItem("language", lang);
-  }, [lang]);
-
+  // t("key") returns the translation for current language
+  // Falls back to English if key not found in current language
   const t = (key) => {
-    return translations[lang]?.[key] || key;
+    const currentLang = translations[lang] || translations["en"];
+    const english = translations["en"];
+    return currentLang[key] || english[key] || key;
   };
 
   return (
@@ -26,6 +20,6 @@ const LanguageProvider = ({ children }) => {
       {children}
     </LanguageContext.Provider>
   );
-};
+}
 
-export default LanguageProvider;
+export { LanguageContext };

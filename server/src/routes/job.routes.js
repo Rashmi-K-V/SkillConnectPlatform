@@ -5,9 +5,10 @@ import {
   acceptJob,
   rejectJob,
   negotiateJob,
-  generateArrivalOtp,
+  workerEnRoute,
   verifyArrivalOtp,
-  completeJob,
+  markWorkDone,
+  verifyCompletionOtp,
   submitFeedback,
   getWorkerJobs,
   getClientJobs,
@@ -16,15 +17,21 @@ import { protect } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-router.post("/",                      protect, requestJob);
-router.get("/worker",                 protect, getWorkerJobs);
-router.get("/client",                 protect, getClientJobs);
-router.put("/:id/accept",             protect, acceptJob);
-router.put("/:id/reject",             protect, rejectJob);
-router.put("/:id/negotiate",          protect, negotiateJob);       // opens 5-min chat
-router.put("/:id/arrival-otp",        protect, generateArrivalOtp); // worker en route → OTP
-router.post("/:id/verify-arrival",    protect, verifyArrivalOtp);   // client verifies OTP
-router.put("/:id/complete",           protect, completeJob);
-router.post("/:id/feedback",          protect, submitFeedback);     // client submits review
+router.post("/",                        protect, requestJob);
+router.get("/worker",                   protect, getWorkerJobs);
+router.get("/client",                   protect, getClientJobs);
+router.put("/:id/accept",               protect, acceptJob);
+router.put("/:id/reject",               protect, rejectJob);
+router.put("/:id/negotiate",            protect, negotiateJob);
+
+
+router.put("/:id/en-route",             protect, workerEnRoute);
+router.put("/:id/enroute",              protect, workerEnRoute);
+router.put("/:id/arrival-otp",          protect, workerEnRoute); // legacy alias
+
+router.post("/:id/verify-arrival",      protect, verifyArrivalOtp);
+router.put("/:id/work-done",            protect, markWorkDone);
+router.post("/:id/verify-completion",   protect, verifyCompletionOtp);
+router.post("/:id/feedback",            protect, submitFeedback);
 
 export default router;

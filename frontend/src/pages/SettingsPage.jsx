@@ -1,5 +1,5 @@
 // src/pages/SettingsPage.jsx
-import { useState, useContext, useRef } from "react";
+import { useState, useContext, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { LanguageContext } from "../context/LanguageContext.jsx";
 import { AuthContext } from "../context/AuthContext.jsx";
@@ -7,8 +7,9 @@ import api from "../services/api.services.js";
 
 function getRoleFromToken() {
   try {
-    const p = JSON.parse(atob(localStorage.getItem("token").split(".")[1]));
-    return p.role || null;
+    return (
+      JSON.parse(atob(localStorage.getItem("token").split(".")[1])).role || null
+    );
   } catch {
     return null;
   }
@@ -152,7 +153,7 @@ function Toast({ message, type = "success" }) {
 
 export default function SettingsPage() {
   const role = getRoleFromToken();
-  const { lang, setLang, t } = useContext(LanguageContext);
+  const { lang, setLang } = useContext(LanguageContext);
   const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const fileRef = useRef();
@@ -162,7 +163,9 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
+  // ✅ Fix 5: Pre-filled from logged-in user
   const [profile, setProfile] = useState({ name: "", email: "" });
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarUploaded, setAvatarUploaded] = useState(false);
@@ -182,6 +185,21 @@ export default function SettingsPage() {
     payments: true,
     promotions: false,
   });
+
+  // ✅ Load real user data from API on mount
+  useEffect(() => {
+    api
+      .get("/auth/me")
+      .then((r) => {
+        setProfile({ name: r.data.name || "", email: r.data.email || "" });
+        if (r.data.profilePicture) {
+          setAvatarPreview(r.data.profilePicture);
+          setAvatarUploaded(true);
+        }
+        setProfileLoaded(true);
+      })
+      .catch(() => setProfileLoaded(true));
+  }, []);
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
@@ -234,6 +252,10 @@ export default function SettingsPage() {
       showToast("Passwords don't match", "error");
       return;
     }
+    if (passwords.next.length < 6) {
+      showToast("Password must be at least 6 characters", "error");
+      return;
+    }
     setSaving(true);
     try {
       await api.put("/auth/password", {
@@ -275,23 +297,6 @@ export default function SettingsPage() {
       gap: 12,
       background: "#141414",
       borderBottom: "1px solid rgba(255,255,255,0.06)",
-    },
-    brand: { display: "flex", alignItems: "center", gap: 9 },
-    brandDot: {
-      width: 30,
-      height: 30,
-      background: "#c8f135",
-      borderRadius: 8,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    brandName: {
-      fontFamily: "'Syne',sans-serif",
-      fontWeight: 700,
-      fontSize: 15,
-      color: "#fff",
-      letterSpacing: "-0.3px",
     },
     body: {
       flex: 1,
@@ -409,26 +414,34 @@ export default function SettingsPage() {
         .sp-navbtn.active:hover{background:#c8f135!important;}
         .sp-inp:focus{border-color:#c8f135!important;box-shadow:0 0 0 3px rgba(200,241,53,0.1)!important;}
         .sp-lang-pill:hover{border-color:rgba(255,255,255,0.2)!important;}
+        .sp-logout-btn:hover{background:rgba(239,68,68,0.1)!important;color:#f87171!important;border-color:rgba(239,68,68,0.2)!important;}
         .sp-mob-tab{display:none;overflow-x:auto;gap:6px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.06);background:#141414;scrollbar-width:none;}
         .sp-mob-tab-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:20px;background:#1e1e1e;border:1px solid rgba(255,255,255,0.07);color:rgba(255,255,255,0.45);font-family:'Manrope',sans-serif;font-size:12.5px;font-weight:600;white-space:nowrap;cursor:pointer;flex-shrink:0;transition:all 0.15s;}
         .sp-mob-tab-btn.active{background:#c8f135;color:#0d0d0d;border-color:#c8f135;}
-        .sp-logout-btn:hover{background:rgba(239,68,68,0.1)!important;color:#f87171!important;border-color:rgba(239,68,68,0.2)!important;}
         @keyframes spin{to{transform:rotate(360deg)}}
         @media(max-width:700px){
           .sp-sidenav{display:none!important;}
           .sp-mob-tab{display:flex!important;}
           .sp-body{padding:20px 16px 48px!important;}
-          .sp-topbar{padding:0 16px!important;}
           .sp-row2{grid-template-columns:1fr!important;}
           .sp-lang-grid{grid-template-columns:repeat(2,1fr)!important;}
         }
       `}</style>
 
       <div style={s.root}>
-        {/* Topbar */}
-        <header className="sp-topbar" style={s.topbar}>
-          <div style={s.brand}>
-            <div style={s.brandDot}>
+        <header style={s.topbar}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            <div
+              style={{
+                width: 30,
+                height: 30,
+                background: "#c8f135",
+                borderRadius: 8,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               <svg
                 viewBox="0 0 24 24"
                 fill="#0d0d0d"
@@ -437,7 +450,17 @@ export default function SettingsPage() {
                 <polygon points="5,3 19,12 5,21" />
               </svg>
             </div>
-            <span style={s.brandName}>SkillConnect</span>
+            <span
+              style={{
+                fontFamily: "'Syne',sans-serif",
+                fontWeight: 700,
+                fontSize: 15,
+                color: "#fff",
+                letterSpacing: "-0.3px",
+              }}
+            >
+              SkillConnect
+            </span>
           </div>
           <div
             style={{
@@ -463,7 +486,6 @@ export default function SettingsPage() {
                 {role}
               </span>
             )}
-            {/* ✅ LOGOUT BUTTON */}
             <button
               className="sp-logout-btn"
               onClick={() => setShowLogoutConfirm(true)}
@@ -494,8 +516,8 @@ export default function SettingsPage() {
             style={{
               position: "fixed",
               inset: 0,
-              background: "rgba(0,0,0,0.75)",
-              zIndex: 200,
+              background: "rgba(0,0,0,0.8)",
+              zIndex: 300,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -574,33 +596,31 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Mobile tabs */}
         <div className="sp-mob-tab">
-          {TABS.map((tab) => (
+          {TABS.map((t) => (
             <button
-              key={tab.id}
-              className={`sp-mob-tab-btn ${activeTab === tab.id ? "active" : ""}`}
-              onClick={() => setActiveTab(tab.id)}
+              key={t.id}
+              className={`sp-mob-tab-btn ${activeTab === t.id ? "active" : ""}`}
+              onClick={() => setActiveTab(t.id)}
             >
-              <Icon name={tab.icon} size={13} />
-              {tab.label}
+              <Icon name={t.icon} size={13} />
+              {t.label}
             </button>
           ))}
         </div>
 
         <div className="sp-body" style={s.body}>
-          {/* Sidebar nav */}
           <nav className="sp-sidenav" style={s.sidenav}>
             <div style={s.navTitle}>Settings</div>
-            {TABS.map((tab) => (
+            {TABS.map((t) => (
               <button
-                key={tab.id}
-                className={`sp-navbtn ${activeTab === tab.id ? "active" : ""}`}
-                style={s.navBtn(activeTab === tab.id)}
-                onClick={() => setActiveTab(tab.id)}
+                key={t.id}
+                className={`sp-navbtn ${activeTab === t.id ? "active" : ""}`}
+                style={s.navBtn(activeTab === t.id)}
+                onClick={() => setActiveTab(t.id)}
               >
-                <Icon name={tab.icon} size={16} />
-                {tab.label}
+                <Icon name={t.icon} size={16} />
+                {t.label}
               </button>
             ))}
           </nav>
@@ -611,7 +631,7 @@ export default function SettingsPage() {
               <>
                 <div style={s.section}>
                   <div style={s.sTitle}>Profile Photo</div>
-                  <div style={{ ...s.sSub, color: "rgba(255,255,255,0.3)" }}>
+                  <div style={{ ...s.sSub }}>
                     A photo is{" "}
                     <strong style={{ color: "#fbbf24" }}>required</strong> for
                     identity verification.
@@ -631,9 +651,7 @@ export default function SettingsPage() {
                         width: 72,
                         height: 72,
                         borderRadius: "50%",
-                        background: avatarPreview
-                          ? "transparent"
-                          : "linear-gradient(135deg,#f97316,#ec4899)",
+                        background: "linear-gradient(135deg,#f97316,#ec4899)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -662,6 +680,7 @@ export default function SettingsPage() {
                       )}
                     </div>
                     <div>
+                      {/* ✅ Fix 5: Shows real name from API */}
                       <div
                         style={{
                           fontSize: 17,
@@ -671,7 +690,9 @@ export default function SettingsPage() {
                           fontFamily: "'Syne',sans-serif",
                         }}
                       >
-                        {profile.name || "Your Name"}
+                        {profileLoaded
+                          ? profile.name || "Your Name"
+                          : "Loading…"}
                       </div>
                       <div
                         style={{
@@ -785,7 +806,9 @@ export default function SettingsPage() {
 
                 <div style={s.section}>
                   <div style={s.sTitle}>Personal Info</div>
-                  <div style={s.sSub}>Update your name and email.</div>
+                  <div style={s.sSub}>
+                    Your name and email are pre-filled from your account.
+                  </div>
                   <div
                     className="sp-row2"
                     style={{
@@ -962,8 +985,8 @@ export default function SettingsPage() {
               <div style={s.section}>
                 <div style={s.sTitle}>Language</div>
                 <div style={s.sSub}>
-                  Choose the interface language. Worker messages will be
-                  translated to this language.
+                  Choose your interface language. Worker messages in chat will
+                  be translated to this language.
                 </div>
                 <div
                   className="sp-lang-grid"
@@ -1030,7 +1053,7 @@ export default function SettingsPage() {
                     sub:
                       role === "worker"
                         ? "New job requests"
-                        : "Updates on your bookings",
+                        : "Booking updates",
                   },
                   {
                     key: "messages",
@@ -1040,7 +1063,7 @@ export default function SettingsPage() {
                   {
                     key: "payments",
                     label: "Payments",
-                    sub: "Payment confirmations and receipts",
+                    sub: "Payment confirmations",
                   },
                   {
                     key: "promotions",
@@ -1080,7 +1103,7 @@ export default function SettingsPage() {
                     </div>
                     <button
                       onClick={() =>
-                        setNotifs({ ...notifs, [key]: !notifs[key] })
+                        setNotifs((p) => ({ ...p, [key]: !p[key] }))
                       }
                       style={{
                         width: 44,
