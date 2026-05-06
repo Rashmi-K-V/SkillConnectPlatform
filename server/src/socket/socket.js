@@ -28,6 +28,14 @@ export function initSocket(httpServer) {
   });
 
   io.on("connection", (socket) => {
+    socket.on("workerLocationUpdate", ({ jobId, clientId, location }) => {
+    // Send live location to the client's socket
+    if (userSockets && userSockets[clientId]) {
+    io.to(userSockets[clientId]).emit("updateWorkerLocation", { jobId, location });
+   }
+  // Also broadcast to the job room
+    io.to(jobId).emit("updateWorkerLocation", { jobId, location });
+  });
     userSockets.set(socket.userId, socket.id);
     console.log(`Socket connected: ${socket.userId} (${socket.role})`);
 
@@ -46,3 +54,13 @@ export function notifyUser(io, userSockets, userId, event, data) {
     io.to(socketId).emit(event, data);
   }
 }
+
+// In socket.js — add inside io.on("connection"):
+// socket.on("workerLocationUpdate", ({ jobId, clientId, location }) => {
+//   // Send live location to the client's socket
+//   if (userSockets && userSockets[clientId]) {
+//     io.to(userSockets[clientId]).emit("updateWorkerLocation", { jobId, location });
+//   }
+//   // Also broadcast to the job room
+//   io.to(jobId).emit("updateWorkerLocation", { jobId, location });
+// });

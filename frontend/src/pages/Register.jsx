@@ -4,7 +4,13 @@ import { useNavigate } from "react-router-dom";
 import api from "../services/api.services.js";
 import { LanguageContext } from "../context/LanguageContext.jsx";
 
-const CATEGORIES = ["electrician", "plumber", "cleaner", "cook", "tailor"];
+const CATEGORIES = [
+  "electrician",
+  "plumber",
+  "cleaner",
+  "cook",
+  "steam ironing",
+];
 
 function Register() {
   const [form, setForm] = useState({
@@ -305,7 +311,7 @@ function Register() {
                     {cat === "plumber" && "🔧 "}
                     {cat === "cleaner" && "🧹 "}
                     {cat === "cook" && "🍳 "}
-                    {cat === "tailor" && "🧵 "}
+                    {cat === "steam ironing" && " 👔 "}
                     {cat}
                   </button>
                 ))}

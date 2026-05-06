@@ -140,7 +140,7 @@ function CompletionOtpModal({ job, onClose, onVerified }) {
     }
     setLoading(true);
     try {
-      await api.post(`/jobs/${job._id}/verify-completion`, { otp });
+      await api.put(`/jobs/${job._id}/complete`, { otp });
       onVerified();
       onClose();
     } catch (e) {

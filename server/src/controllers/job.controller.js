@@ -97,20 +97,18 @@ export const rejectJob = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-// ── WORKER EN ROUTE: Generates ARRIVAL OTP ───────────────────
-// ✅ CORRECTED FLOW:
-// Worker clicks "I'm En Route" → backend generates OTP
-// OTP is stored on job and sent to CLIENT via socket (client shows it on screen)
-// Worker arrives, asks client for the code, enters it on their device
+// In job.controller.js — fix workerEnRoute (404 was because route was /enroute not /en-route)
 export const workerEnRoute = async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
     if (!job) return res.status(404).json({ message: "Job not found" });
     if (job.workerId.toString() !== req.user._id.toString())
       return res.status(403).json({ message: "Not authorized" });
+    if (!["accepted"].includes(job.status))
+      return res.status(400).json({ message: "Job must be accepted before going en route" });
 
-    const otp     = genOtp();
-    const expires = new Date(Date.now() + 30 * 60 * 1000); // 30 min
+    const otp     = Math.floor(1000 + Math.random() * 9000).toString();
+    const expires = new Date(Date.now() + 30 * 60 * 1000);
 
     job.status            = "ongoing";
     job.arrivalOtp        = otp;
@@ -118,52 +116,70 @@ export const workerEnRoute = async (req, res) => {
     if (req.body.eta) job.eta = req.body.eta;
     await job.save();
 
-    // ✅ Send OTP to CLIENT — they show it to the worker
-    notifyUser(io, userSockets, job.clientId.toString(), "arrival_otp", {
-      jobId:      job._id,
-      otp,
-      workerName: req.user.name,
-      message:    `${req.user.name} is on the way! Your arrival code is ready. Show it to the worker when they arrive.`,
-    });
+    // ✅ Send OTP to CLIENT via socket — they show it on their screen
+    const { io, userSockets } = await import("../server.js");
+    if (io && userSockets) {
+      const clientSocketId = userSockets[job.clientId.toString()];
+      if (clientSocketId) {
+        io.to(clientSocketId).emit("arrival_otp", {
+          jobId:      job._id,
+          otp,
+          workerName: req.user.name,
+          message:    req.user.name + " is on the way! Show them the code below.",
+        });
+      }
+    }
 
-    res.json({ message: "En route. OTP sent to client.", eta: job.eta });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+    res.json({ message: "En route! OTP sent to client.", eta: job.eta });
+  } catch (err) {
+    console.error("enRoute error:", err);
+    res.status(500).json({ message: err.message });
+  }
 };
 
-// ── WORKER ENTERS ARRIVAL OTP (shown by client) ───────────────
-// ✅ CORRECTED: Worker calls this endpoint with the OTP they saw on client's screen
+// ✅ Fix verifyArrivalOtp — was comparing wrong fields
 export const verifyArrivalOtp = async (req, res) => {
   try {
     const { otp } = req.body;
+    if (!otp) return res.status(400).json({ message: "OTP is required" });
+
     const job = await Job.findById(req.params.id);
     if (!job) return res.status(404).json({ message: "Job not found" });
-
-    // ✅ Worker verifies — not client
     if (job.workerId.toString() !== req.user._id.toString())
       return res.status(403).json({ message: "Only the worker can verify arrival" });
 
-    if (job.arrivalOtp !== otp)
+    console.log("Stored OTP:", job.arrivalOtp, "| Entered OTP:", otp); // debug
+
+    if (!job.arrivalOtp)
+      return res.status(400).json({ message: "No arrival OTP found. Please go en route first." });
+    if (job.arrivalOtp.toString() !== otp.toString())
       return res.status(400).json({ message: "Incorrect code. Ask the client to check their screen." });
-    if (job.arrivalOtpExpires < new Date())
-      return res.status(400).json({ message: "Code expired. Go en route again to get a new one." });
+    if (job.arrivalOtpExpires && job.arrivalOtpExpires < new Date())
+      return res.status(400).json({ message: "Code expired. Go en route again to get a new code." });
 
     job.status          = "verified";
     job.arrivalVerified = true;
     await job.save();
 
-    // Notify both parties
-    notifyUser(io, userSockets, job.clientId.toString(), "arrival_verified", {
-      jobId:   job._id,
-      message: `${req.user.name} has arrived and verified! Work is starting now.`,
-    });
+    const { io, userSockets } = await import("../server.js");
+    if (io && userSockets) {
+      const clientSocketId = userSockets[job.clientId.toString()];
+      if (clientSocketId) {
+        io.to(clientSocketId).emit("arrival_verified", {
+          jobId:   job._id,
+          message: req.user.name + " has arrived and verified! Work is starting now.",
+        });
+      }
+    }
 
     res.json({ message: "Arrival verified! Work has started.", job });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) {
+    console.error("verifyArrival error:", err);
+    res.status(500).json({ message: err.message });
+  }
 };
 
-// ── WORKER MARKS WORK DONE — generates COMPLETION OTP ────────
-// Worker asks: "Have you paid?" → if yes, generates completion OTP
-// Client enters completion OTP to confirm job done + payment received
+// ✅ Fix markWorkDone — completion OTP shown to WORKER, client enters it
 export const markWorkDone = async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
@@ -174,41 +190,40 @@ export const markWorkDone = async (req, res) => {
     const { paymentReceived } = req.body;
 
     if (!paymentReceived) {
-      // Worker says payment not received
       job.status           = "work_done";
-      job.paymentDisputeAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min window
+      job.paymentDisputeAt = new Date(Date.now() + 10 * 60 * 1000);
       await job.save();
 
-      notifyUser(io, userSockets, job.clientId.toString(), "payment_requested", {
-        jobId:   job._id,
-        workerName: req.user.name,
-        deadline: job.paymentDisputeAt,
-        message: `${req.user.name} has completed the work. Please pay ₹${job.price} within 10 minutes.`,
-      });
-
-      // Schedule auto-escalation after 10 minutes
-      setTimeout(async () => {
-        const fresh = await Job.findById(job._id);
-        if (fresh && fresh.status === "work_done") {
-          fresh.status = "payment_dispute";
-          await fresh.save();
-          notifyUser(io, userSockets, job.clientId.toString(), "payment_dispute", {
-            jobId: job._id,
-            message: "⚠️ Payment not received within 10 minutes. This has been escalated.",
-          });
-          notifyUser(io, userSockets, job.workerId.toString(), "payment_dispute_worker", {
-            jobId: job._id,
-            message: "Payment was not received within 10 minutes. You may file a complaint.",
+      const { io, userSockets } = await import("../server.js");
+      if (io && userSockets) {
+        const clientSocketId = userSockets[job.clientId.toString()];
+        if (clientSocketId) {
+          io.to(clientSocketId).emit("payment_requested", {
+            jobId:      job._id,
+            workerName: req.user.name,
+            deadline:   job.paymentDisputeAt,
+            message:    req.user.name + " has finished the work. Please pay ₹" + job.price + " within 10 minutes.",
           });
         }
+      }
+
+      setTimeout(async () => {
+        try {
+          const fresh = await Job.findById(job._id);
+          if (fresh && fresh.status === "work_done" && !fresh.completionOtp) {
+            fresh.status = "payment_dispute";
+            await fresh.save();
+          }
+        } catch (e) { console.error("dispute timeout error:", e); }
       }, 10 * 60 * 1000);
 
       return res.json({ message: "Work marked done. Client has 10 minutes to pay.", job });
     }
 
-    // Payment received — generate completion OTP
-    const otp     = genOtp();
-    const expires = new Date(Date.now() + 15 * 60 * 1000);
+    // ✅ Payment received — generate completion OTP
+    // Worker shows this OTP to client, client enters it to confirm job is done
+    const otp     = Math.floor(1000 + Math.random() * 9000).toString();
+    const expires = new Date(Date.now() + 30 * 60 * 1000);
 
     job.status               = "work_done";
     job.completionOtp        = otp;
@@ -216,16 +231,19 @@ export const markWorkDone = async (req, res) => {
     job.paymentConfirmedAt   = new Date();
     await job.save();
 
-    // Send completion OTP to CLIENT — they enter it to confirm everything is done
-    notifyUser(io, userSockets, job.clientId.toString(), "completion_otp", {
-      jobId:      job._id,
-      otp,
-      workerName: req.user.name,
-      message:    `${req.user.name} has completed the work! Enter the completion code to close the job.`,
-    });
+    // ✅ Do NOT send OTP to client via socket — worker shows it physically
+    // Client must ask worker "what's the code?" — prevents fraud
+    // Worker sees it on their screen in Jobs.jsx
 
-    res.json({ otp, message: "Work done! Show completion OTP to client or they received it on screen." });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+    res.json({
+      message: "Payment confirmed! Show the completion code to your client.",
+      otp,      // returned so worker's Jobs.jsx can display it
+      job,
+    });
+  } catch (err) {
+    console.error("markWorkDone error:", err);
+    res.status(500).json({ message: err.message });
+  }
 };
 
 // ── CLIENT ENTERS COMPLETION OTP to finalize job ─────────────

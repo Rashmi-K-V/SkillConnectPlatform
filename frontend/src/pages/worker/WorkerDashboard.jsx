@@ -545,27 +545,40 @@ function DashboardHome({ user, portfolio, loading, nav, getGreeting }) {
   const completedCount = checks.filter((c) => c.done).length;
   const pct = Math.round((completedCount / checks.length) * 100);
 
+  // In DashboardHome, replace the STATS array with:
   const STATS = [
     {
       label: "Skills Listed",
-      value: skills.length || "0",
-      delta: skills.length ? "from portfolio" : "add skills",
+      // ✅ Fix 2: show loading state while portfolio loads, not 0
+      value: loading ? "…" : skills.length || "0",
+      delta: loading
+        ? "loading"
+        : skills.length
+          ? "from portfolio"
+          : "add skills",
       accent: "#c8f135",
     },
     {
       label: "Avg Rating",
-      value: portfolio?.avgRating ? `${portfolio.avgRating}★` : "—",
-      delta: portfolio?.totalRatings
-        ? `${portfolio.totalRatings} reviews`
-        : "no reviews yet",
+      value: loading
+        ? "…"
+        : portfolio?.avgRating
+          ? `${portfolio.avgRating}★`
+          : "—",
+      delta: loading
+        ? "loading"
+        : portfolio?.totalRatings
+          ? `${portfolio.totalRatings} reviews`
+          : "no reviews yet",
       accent: "#fbbf24",
     },
     {
       label: "Jobs Completed",
-      value:
-        recentJobs.filter(
-          (j) => j.status === "completed" || j.status === "rated",
-        ).length || "0",
+      value: jobsLoading
+        ? "…"
+        : recentJobs.filter(
+            (j) => j.status === "completed" || j.status === "rated",
+          ).length || "0",
       delta: "total",
       accent: "#60a5fa",
     },

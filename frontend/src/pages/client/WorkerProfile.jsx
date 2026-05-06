@@ -1,29 +1,66 @@
-// src/pages/client/WorkerProfile.jsx
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api.services.js";
 import { CATEGORY_DATA } from "../../data/categoryData.js";
 
+function isBlipDescription(text) {
+  if (!text) return true;
+  const blipPhrases = [
+    "a person is",
+    "a man is",
+    "a woman is",
+    "a bed with",
+    "indian girl",
+    "girl in shorts",
+    "playing with a toy",
+    "standing in the middle",
+    "person using",
+    "person holding",
+    "someone is",
+    "man is using",
+    "woman is using",
+    "striped shirt",
+    "standing near",
+    "wearing a",
+    "looking at",
+    "sitting on",
+    "holding a",
+    "a boy is",
+    "a girl is",
+    "painting a wall",
+    "working on",
+    "sandpaper",
+    "floral print",
+    "floral pattern",
+    "pink blanket",
+    "blue blanket",
+  ];
+  return blipPhrases.some((b) => text.toLowerCase().includes(b));
+}
+
 export default function WorkerProfile() {
   const { workerId } = useParams();
   const navigate = useNavigate();
+
   const [portfolio, setPortfolio] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState("overview"); // overview | book
+  const [view, setView] = useState("overview");
   const [booking, setBooking] = useState(false);
   const [locLoading, setLocLoading] = useState(false);
+  const [quantities, setQuantities] = useState({});
+
   const [bookForm, setBookForm] = useState({
     description: "",
     location: "",
     price: "",
     selectedWorkType: "",
-    paymentMethod: "cash", // cash | upi | bank_transfer
+    paymentMethod: "cash",
     upiId: "",
   });
 
   useEffect(() => {
     api
-      .get(`/portfolios/worker/${workerId}`)
+      .get("/portfolios/worker/" + workerId)
       .then((r) => setPortfolio(r.data))
       .catch(() => setPortfolio(null))
       .finally(() => setLoading(false));
@@ -39,37 +76,71 @@ export default function WorkerProfile() {
       async (pos) => {
         try {
           const r = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`,
+            "https://nominatim.openstreetmap.org/reverse?lat=" +
+              pos.coords.latitude +
+              "&lon=" +
+              pos.coords.longitude +
+              "&format=json&addressdetails=1",
           );
           const d = await r.json();
-          // ✅ Shorten address — just show area, city (not full 200 char string)
           const addr = d.address;
-          const short =
-            [
-              addr?.suburb || addr?.neighbourhood,
-              addr?.city || addr?.town,
-              addr?.state,
-            ]
-              .filter(Boolean)
-              .join(", ") || d.display_name;
-          setBookForm((p) => ({ ...p, location: short }));
+          const full = [
+            addr?.house_number,
+            addr?.road || addr?.street,
+            addr?.suburb || addr?.neighbourhood || addr?.quarter,
+            addr?.city_district || addr?.county,
+            addr?.city || addr?.town || addr?.village,
+            addr?.state,
+            addr?.postcode,
+          ]
+            .filter(Boolean)
+            .join(", ");
+          setBookForm((p) => ({ ...p, location: full || d.display_name }));
         } catch {
           setBookForm((p) => ({
             ...p,
-            location: `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`,
+            location:
+              pos.coords.latitude.toFixed(6) +
+              ", " +
+              pos.coords.longitude.toFixed(6),
           }));
         } finally {
           setLocLoading(false);
         }
       },
       () => {
-        alert("Could not get location.");
+        alert("Could not get location. Please type your address.");
         setLocLoading(false);
       },
     );
   };
 
-  const handleBook = async () => {
+  // ✅ Calculate total price from quantities
+  const calcTotal = (services) => {
+    let total = 0;
+    services.forEach((s) => {
+      const qty = quantities[s.id] || 0;
+      if (qty > 0) total += s.minPrice * qty;
+    });
+    return total;
+  };
+
+  // Build service summary text for description
+  const buildServiceSummary = (services) => {
+    return services
+      .filter((s) => (quantities[s.id] || 0) > 0)
+      .map(
+        (s) =>
+          s.label +
+          " × " +
+          quantities[s.id] +
+          " = ₹" +
+          s.minPrice * quantities[s.id],
+      )
+      .join("\n");
+  };
+
+  const handleBook = async (selectedServices) => {
     if (!bookForm.description.trim()) {
       alert("Please describe what you need.");
       return;
@@ -78,17 +149,28 @@ export default function WorkerProfile() {
       alert("Please enter your UPI ID.");
       return;
     }
+
+    const total = calcTotal(selectedServices);
+    const summary = buildServiceSummary(selectedServices);
+    const finalDesc = bookForm.selectedWorkType
+      ? bookForm.selectedWorkType +
+        ": " +
+        bookForm.description +
+        (summary ? "\n" + summary : "")
+      : bookForm.description + (summary ? "\n" + summary : "");
+    const finalPrice =
+      total > 0 ? total : bookForm.price ? Number(bookForm.price) : undefined;
+
     setBooking(true);
     try {
       await api.post("/jobs", {
         workerId,
-        description: bookForm.selectedWorkType
-          ? `${bookForm.selectedWorkType}: ${bookForm.description}`
-          : bookForm.description,
+        description: finalDesc,
         location: bookForm.location,
-        price: bookForm.price ? Number(bookForm.price) : undefined,
+        price: finalPrice,
         paymentMethod: bookForm.paymentMethod,
         upiId: bookForm.upiId || undefined,
+        quantities,
       });
       alert("Job request sent! The worker will be notified.");
       navigate("/client/jobs");
@@ -205,12 +287,17 @@ export default function WorkerProfile() {
     },
   ];
 
+  const total = calcTotal(selectedServices);
+
   return (
     <div style={{ maxWidth: 640, fontFamily: "'Manrope',sans-serif" }}>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Manrope:wght@400;500;600&display=swap');
         .wp-inp:focus{border-color:#c8f135!important;box-shadow:0 0 0 3px rgba(200,241,53,0.09)!important;}
         .wp-loc-btn:hover{border-color:#c8f135!important;color:#c8f135!important;}
         .wp-pay:hover{border-color:rgba(255,255,255,0.22)!important;}
+        .qty-btn{width:32px;height:32px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#fff;font-size:18;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;font-family:'Syne',sans-serif;}
+        .qty-btn:hover{border-color:#c8f135;color:#c8f135;background:rgba(200,241,53,0.08);}
         @keyframes spin{to{transform:rotate(360deg)}}
       `}</style>
 
@@ -246,7 +333,7 @@ export default function WorkerProfile() {
         Back
       </button>
 
-      {/* Header — ✅ NO description shown here (BLIP output was garbage) */}
+      {/* Profile header */}
       <div style={card}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div
@@ -321,7 +408,6 @@ export default function WorkerProfile() {
                 </span>
               )}
             </div>
-            {/* Price range — shown prominently */}
             {(portfolio.priceMin || portfolio.priceMax) && (
               <div
                 style={{
@@ -359,7 +445,7 @@ export default function WorkerProfile() {
             )}
           </div>
         </div>
-        {/* ✅ Only show description if worker manually wrote it (not BLIP output) */}
+        {/* ✅ Only show description if worker manually wrote it */}
         {portfolio.description && !isBlipDescription(portfolio.description) && (
           <p
             style={{
@@ -374,7 +460,7 @@ export default function WorkerProfile() {
         )}
       </div>
 
-      {/* Services list */}
+      {/* Services */}
       {selectedServices.length > 0 && (
         <div style={card}>
           <div
@@ -434,7 +520,7 @@ export default function WorkerProfile() {
             { label: "Contact", value: portfolio.contact },
             {
               label: "Age",
-              value: portfolio.age ? `${portfolio.age} yrs` : null,
+              value: portfolio.age ? portfolio.age + " yrs" : null,
             },
           ]
             .filter((d) => d.value)
@@ -539,35 +625,7 @@ export default function WorkerProfile() {
         </div>
       )}
 
-      {/* Video */}
-      {portfolio.videoUrl && (
-        <div style={card}>
-          <div
-            style={{
-              fontSize: 10,
-              fontWeight: 600,
-              color: "rgba(255,255,255,0.28)",
-              textTransform: "uppercase",
-              letterSpacing: "0.1em",
-              marginBottom: 12,
-            }}
-          >
-            Work Video
-          </div>
-          <video
-            src={portfolio.videoUrl}
-            controls
-            style={{
-              width: "100%",
-              borderRadius: 10,
-              maxHeight: 240,
-              background: "#000",
-            }}
-          />
-        </div>
-      )}
-
-      {/* Client Reviews */}
+      {/* Reviews */}
       {portfolio.reviews?.length > 0 && (
         <div style={card}>
           <div
@@ -651,7 +709,7 @@ export default function WorkerProfile() {
         </div>
       )}
 
-      {/* Book section */}
+      {/* Book button / Book form */}
       {view === "overview" ? (
         <button
           onClick={() => setView("book")}
@@ -693,57 +751,162 @@ export default function WorkerProfile() {
             Describe what you need. The worker will confirm or negotiate.
           </div>
 
-          {/* Select service */}
+          {/* ✅ Service selector with quantity stepper */}
           {selectedServices.length > 0 && (
-            <div style={{ marginBottom: 14 }}>
-              <label style={lb}>Select Service</label>
-              {selectedServices.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() =>
-                    setBookForm((p) => ({
-                      ...p,
-                      selectedWorkType: s.label,
-                      price: s.minPrice,
-                    }))
-                  }
+            <div style={{ marginBottom: 18 }}>
+              <label style={lb}>Select Services & Quantity</label>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "rgba(255,255,255,0.3)",
+                  marginBottom: 10,
+                }}
+              >
+                Adjust quantity — price updates automatically
+              </div>
+              {selectedServices.map((s) => {
+                const qty = quantities[s.id] || 0;
+                return (
+                  <div
+                    key={s.id}
+                    style={{
+                      padding: "12px 14px",
+                      borderRadius: 12,
+                      border:
+                        "1.5px solid " +
+                        (qty > 0 ? "#c8f135" : "rgba(255,255,255,0.1)"),
+                      background:
+                        qty > 0
+                          ? "rgba(200,241,53,0.05)"
+                          : "rgba(255,255,255,0.03)",
+                      marginBottom: 8,
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 10,
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: qty > 0 ? "#c8f135" : "#fff",
+                          }}
+                        >
+                          {s.label}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "rgba(255,255,255,0.35)",
+                            marginTop: 2,
+                          }}
+                        >
+                          ₹{s.minPrice} per item
+                          {qty > 0 && (
+                            <span
+                              style={{
+                                color: "#c8f135",
+                                fontWeight: 700,
+                                marginLeft: 8,
+                              }}
+                            >
+                              = ₹{(s.minPrice * qty).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {/* Quantity stepper */}
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          flexShrink: 0,
+                        }}
+                      >
+                        <button
+                          className="qty-btn"
+                          onClick={() =>
+                            setQuantities((p) => ({
+                              ...p,
+                              [s.id]: Math.max(0, (p[s.id] || 0) - 1),
+                            }))
+                          }
+                        >
+                          −
+                        </button>
+                        <span
+                          style={{
+                            fontFamily: "'Syne',sans-serif",
+                            fontSize: 18,
+                            fontWeight: 700,
+                            color:
+                              qty > 0 ? "#c8f135" : "rgba(255,255,255,0.3)",
+                            minWidth: 24,
+                            textAlign: "center",
+                          }}
+                        >
+                          {qty}
+                        </span>
+                        <button
+                          className="qty-btn"
+                          onClick={() =>
+                            setQuantities((p) => ({
+                              ...p,
+                              [s.id]: (p[s.id] || 0) + 1,
+                            }))
+                          }
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Total */}
+              {total > 0 && (
+                <div
                   style={{
-                    width: "100%",
-                    padding: "10px 14px",
+                    padding: "12px 16px",
+                    background: "rgba(200,241,53,0.08)",
+                    border: "1px solid rgba(200,241,53,0.25)",
                     borderRadius: 10,
-                    border: `1.5px solid ${bookForm.selectedWorkType === s.label ? "#c8f135" : "rgba(255,255,255,0.1)"}`,
-                    background:
-                      bookForm.selectedWorkType === s.label
-                        ? "rgba(200,241,53,0.08)"
-                        : "rgba(255,255,255,0.03)",
-                    cursor: "pointer",
                     display: "flex",
-                    alignItems: "center",
                     justifyContent: "space-between",
-                    fontFamily: "'Manrope',sans-serif",
-                    marginBottom: 6,
-                    transition: "all 0.15s",
+                    alignItems: "center",
+                    marginTop: 4,
                   }}
                 >
                   <span
                     style={{
                       fontSize: 13,
-                      fontWeight: 500,
-                      color:
-                        bookForm.selectedWorkType === s.label
-                          ? "#c8f135"
-                          : "#fff",
+                      color: "rgba(255,255,255,0.6)",
+                      fontWeight: 600,
                     }}
                   >
-                    {s.label}
+                    Estimated Total
                   </span>
                   <span
-                    style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}
+                    style={{
+                      fontFamily: "'Syne',sans-serif",
+                      fontSize: 22,
+                      fontWeight: 800,
+                      color: "#c8f135",
+                    }}
                   >
-                    ₹{s.minPrice.toLocaleString()}–{s.maxPrice.toLocaleString()}
+                    ₹{total.toLocaleString()}
                   </span>
-                </button>
-              ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -762,7 +925,7 @@ export default function WorkerProfile() {
             />
           </div>
 
-          {/* Location — ✅ Fix 3: truncated, short address */}
+          {/* Location */}
           <div style={{ marginBottom: 12 }}>
             <label style={lb}>Location</label>
             <div style={{ display: "flex", gap: 8 }}>
@@ -821,37 +984,39 @@ export default function WorkerProfile() {
             </div>
           </div>
 
-          {/* Budget */}
-          <div style={{ marginBottom: 16 }}>
-            <label style={lb}>Your Budget (₹)</label>
-            <div style={{ position: "relative" }}>
-              <span
-                style={{
-                  position: "absolute",
-                  left: 13,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  fontSize: 13,
-                  color: "rgba(255,255,255,0.4)",
-                  pointerEvents: "none",
-                }}
-              >
-                ₹
-              </span>
-              <input
-                className="wp-inp"
-                type="number"
-                value={bookForm.price}
-                onChange={(e) =>
-                  setBookForm((p) => ({ ...p, price: e.target.value }))
-                }
-                placeholder="Optional"
-                style={{ ...inp, paddingLeft: 28 }}
-              />
+          {/* Budget — shown only if no quantity-based total */}
+          {total === 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <label style={lb}>Your Budget (₹)</label>
+              <div style={{ position: "relative" }}>
+                <span
+                  style={{
+                    position: "absolute",
+                    left: 13,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    fontSize: 13,
+                    color: "rgba(255,255,255,0.4)",
+                    pointerEvents: "none",
+                  }}
+                >
+                  ₹
+                </span>
+                <input
+                  className="wp-inp"
+                  type="number"
+                  value={bookForm.price}
+                  onChange={(e) =>
+                    setBookForm((p) => ({ ...p, price: e.target.value }))
+                  }
+                  placeholder="Optional"
+                  style={{ ...inp, paddingLeft: 28 }}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* ✅ Payment Method */}
+          {/* Payment Method */}
           <div style={{ marginBottom: 16 }}>
             <label style={lb}>Payment Method *</label>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -869,7 +1034,11 @@ export default function WorkerProfile() {
                   style={{
                     padding: "11px 14px",
                     borderRadius: 10,
-                    border: `1.5px solid ${bookForm.paymentMethod === opt.id ? "#c8f135" : "rgba(255,255,255,0.1)"}`,
+                    border:
+                      "1.5px solid " +
+                      (bookForm.paymentMethod === opt.id
+                        ? "#c8f135"
+                        : "rgba(255,255,255,0.1)"),
                     background:
                       bookForm.paymentMethod === opt.id
                         ? "rgba(200,241,53,0.08)"
@@ -901,7 +1070,6 @@ export default function WorkerProfile() {
                 </button>
               ))}
             </div>
-            {/* UPI ID input */}
             {bookForm.paymentMethod === "upi" && (
               <input
                 className="wp-inp"
@@ -934,7 +1102,7 @@ export default function WorkerProfile() {
               Cancel
             </button>
             <button
-              onClick={handleBook}
+              onClick={() => handleBook(selectedServices)}
               disabled={booking}
               style={{
                 flex: 2,
@@ -949,33 +1117,14 @@ export default function WorkerProfile() {
                 fontFamily: "'Manrope',sans-serif",
               }}
             >
-              {booking ? "Sending…" : "Send Job Request"}
+              {booking
+                ? "Sending…"
+                : "Send Job Request" +
+                  (total > 0 ? " — ₹" + total.toLocaleString() : "")}
             </button>
           </div>
         </div>
       )}
     </div>
   );
-}
-
-// Helper — detect BLIP-generated garbage descriptions
-function isBlipDescription(text) {
-  if (!text) return true;
-  const blipPhrases = [
-    "a person is",
-    "a man is",
-    "a woman is",
-    "indian girl",
-    "girl in shorts",
-    "playing with a toy",
-    "standing in the middle",
-    "person using",
-    "person holding",
-    "someone is",
-    "man is using",
-    "woman is using",
-    "striped shirt",
-    "standing near",
-  ];
-  return blipPhrases.some((b) => text.toLowerCase().includes(b));
 }

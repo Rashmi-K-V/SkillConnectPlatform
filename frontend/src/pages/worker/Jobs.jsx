@@ -1,7 +1,9 @@
-// src/pages/worker/Jobs.jsx
 import { useEffect, useState, useRef, useCallback } from "react";
 import api from "../../services/api.services.js";
 import { getSocket } from "../../services/socket.services.js";
+
+// ✅ Match exactly what your job.routes.js has: router.put("/:id/enroute", ...)
+const EN_ROUTE_PATH = "enroute";
 
 const STATUS = {
   pending: {
@@ -51,12 +53,14 @@ const STATUS = {
     label: "⚠ Payment Dispute",
   },
 };
+
 const PAYMENT_LABELS = {
   cash: "💵 Cash",
   upi: "📱 UPI",
   bank_transfer: "🏦 Bank Transfer",
 };
 
+// ── Toast notification ────────────────────────────────────────────────────────
 function Toast({ notif, onDismiss }) {
   useEffect(() => {
     const t = setTimeout(onDismiss, 6000);
@@ -120,6 +124,7 @@ function Toast({ notif, onDismiss }) {
   );
 }
 
+// ── Arrival OTP modal — worker enters code shown on client's screen ───────────
 function ArrivalOtpModal({ job, onClose, onVerified }) {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
@@ -131,12 +136,14 @@ function ArrivalOtpModal({ job, onClose, onVerified }) {
       return;
     }
     setLoading(true);
+    setError("");
     try {
-      await api.post(`/jobs/${job._id}/verify-arrival`, { otp });
+      await api.put("/jobs/" + job._id + "/verify-arrival", { otp });
       onVerified();
       onClose();
     } catch (e) {
-      setError(e.response?.data?.message || "Incorrect code.");
+      // ✅ Show exact backend error so worker knows what went wrong
+      setError(e.response?.data?.message || "Incorrect code. Try again.");
     } finally {
       setLoading(false);
     }
@@ -199,6 +206,7 @@ function ArrivalOtpModal({ job, onClose, onVerified }) {
           }}
           placeholder="_ _ _ _"
           maxLength={4}
+          autoFocus
           style={{
             width: "100%",
             textAlign: "center",
@@ -206,7 +214,8 @@ function ArrivalOtpModal({ job, onClose, onVerified }) {
             letterSpacing: 16,
             fontWeight: 700,
             background: "rgba(255,255,255,0.06)",
-            border: `1px solid ${error ? "#f87171" : "rgba(255,255,255,0.1)"}`,
+            border:
+              "1px solid " + (error ? "#f87171" : "rgba(255,255,255,0.1)"),
             borderRadius: 12,
             padding: "16px",
             color: "#fff",
@@ -263,36 +272,59 @@ function ArrivalOtpModal({ job, onClose, onVerified }) {
   );
 }
 
+// ── Work Done modal — asks if paid, then shows completion OTP to WORKER ───────
 function WorkDoneModal({ job, onClose, onRefresh }) {
   const [loading, setLoading] = useState(false);
-  const [completionOtp, setCompletionOtp] = useState("");
+  const [completionOtp, setCompletionOtp] = useState(null);
+  const [otpExpiry, setOtpExpiry] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(null);
+
+  // Countdown for OTP expiry
+  useEffect(() => {
+    if (!otpExpiry) return;
+    const tick = () => {
+      const left = Math.max(0, new Date(otpExpiry) - Date.now());
+      setTimeLeft(left);
+      if (left === 0) clearInterval(id);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [otpExpiry]);
 
   const handle = async (paymentReceived) => {
     setLoading(true);
     try {
-      const res = await api.put(`/jobs/${job._id}/work-done`, {
+      const res = await api.put("/jobs/" + job._id + "/work-done", {
         paymentReceived,
       });
       if (paymentReceived && res.data.otp) {
+        // ✅ Show completion OTP to WORKER — they show it to client physically
         setCompletionOtp(res.data.otp);
+        setOtpExpiry(
+          res.data.otpExpiry || new Date(Date.now() + 15 * 60 * 1000),
+        );
       } else {
         onRefresh();
         onClose();
       }
     } catch (e) {
-      alert("Failed: " + e.message);
+      alert("Failed: " + (e.response?.data?.message || e.message));
     } finally {
       setLoading(false);
     }
   };
 
-  if (completionOtp)
+  // ── Show completion OTP to worker ─────────────────────────────────────────
+  if (completionOtp) {
+    const mins = timeLeft !== null ? Math.floor(timeLeft / 60000) : 15;
+    const secs = timeLeft !== null ? Math.floor((timeLeft % 60000) / 1000) : 0;
     return (
       <div
         style={{
           position: "fixed",
           inset: 0,
-          background: "rgba(0,0,0,0.85)",
+          background: "rgba(0,0,0,0.92)",
           zIndex: 300,
           display: "flex",
           alignItems: "center",
@@ -302,12 +334,12 @@ function WorkDoneModal({ job, onClose, onRefresh }) {
       >
         <div
           style={{
-            background: "#1a1a1a",
-            border: "1px solid rgba(74,222,128,0.3)",
+            background: "#141414",
+            border: "2px solid rgba(74,222,128,0.4)",
             borderRadius: 20,
             padding: 28,
             width: "100%",
-            maxWidth: 380,
+            maxWidth: 400,
             textAlign: "center",
           }}
         >
@@ -321,7 +353,7 @@ function WorkDoneModal({ job, onClose, onRefresh }) {
               marginBottom: 6,
             }}
           >
-            Completion Code
+            Show This Code to Client
           </div>
           <div
             style={{
@@ -331,39 +363,72 @@ function WorkDoneModal({ job, onClose, onRefresh }) {
               lineHeight: 1.6,
             }}
           >
-            The client has received this on their screen. Share it verbally if
-            needed.
+            Ask{" "}
+            <strong style={{ color: "#c8f135" }}>{job.clientId?.name}</strong>{" "}
+            to enter this code on their screen to confirm the job is complete.
           </div>
+
+          {/* ✅ Big OTP display — stays on screen until worker taps Done */}
           <div
             style={{
-              background: "rgba(74,222,128,0.08)",
+              background: "rgba(74,222,128,0.06)",
               border: "2px solid rgba(74,222,128,0.3)",
-              borderRadius: 14,
-              padding: "20px",
-              marginBottom: 20,
+              borderRadius: 16,
+              padding: "24px 20px",
+              marginBottom: 16,
             }}
           >
             <div
               style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: "rgba(255,255,255,0.4)",
+                textTransform: "uppercase",
+                letterSpacing: "0.1em",
+                marginBottom: 10,
+              }}
+            >
+              Completion Code
+            </div>
+            <div
+              style={{
                 fontFamily: "'Syne',sans-serif",
-                fontSize: 52,
+                fontSize: 56,
                 fontWeight: 900,
                 letterSpacing: 14,
                 color: "#4ade80",
+                lineHeight: 1,
               }}
             >
               {completionOtp}
             </div>
+            <div
+              style={{
+                fontSize: 12,
+                color: "rgba(255,255,255,0.3)",
+                marginTop: 10,
+              }}
+            >
+              Expires in {mins}:{secs.toString().padStart(2, "0")}
+            </div>
           </div>
+
           <div
             style={{
+              padding: "10px 14px",
+              background: "rgba(96,165,250,0.06)",
+              border: "1px solid rgba(96,165,250,0.15)",
+              borderRadius: 10,
               fontSize: 12,
-              color: "rgba(255,255,255,0.35)",
+              color: "rgba(96,165,250,0.8)",
               marginBottom: 16,
             }}
           >
-            Expires in 15 minutes.
+            ℹ️ This code stays visible until the client enters it on their
+            screen. Do not close this window.
           </div>
+
+          {/* Worker can close only after confirming — client will have entered it */}
           <button
             onClick={() => {
               onRefresh();
@@ -382,12 +447,14 @@ function WorkDoneModal({ job, onClose, onRefresh }) {
               fontFamily: "'Manrope',sans-serif",
             }}
           >
-            Done
+            Client Entered It — Close
           </button>
         </div>
       </div>
     );
+  }
 
+  // ── Ask if payment received ────────────────────────────────────────────────
   return (
     <div
       style={{
@@ -474,7 +541,7 @@ function WorkDoneModal({ job, onClose, onRefresh }) {
             ❌ Not Paid
             <br />
             <span style={{ fontSize: 11, opacity: 0.7 }}>
-              Wait 10 min then escalate
+              10 min escalation
             </span>
           </button>
           <button
@@ -496,9 +563,7 @@ function WorkDoneModal({ job, onClose, onRefresh }) {
           >
             ✅ Yes, Paid!
             <br />
-            <span style={{ fontSize: 11, opacity: 0.7 }}>
-              Generate completion code
-            </span>
+            <span style={{ fontSize: 11, opacity: 0.7 }}>Generate code</span>
           </button>
         </div>
         <button
@@ -522,6 +587,7 @@ function WorkDoneModal({ job, onClose, onRefresh }) {
   );
 }
 
+// ── Negotiate chat ────────────────────────────────────────────────────────────
 function NegotiateChat({ job, onClose }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
@@ -532,10 +598,8 @@ function NegotiateChat({ job, onClose }) {
 
   useEffect(() => {
     if (!job.negotiationExpiry) return;
-    const upd = () => {
-      const left = Math.max(0, new Date(job.negotiationExpiry) - Date.now());
-      setTimeLeft(left);
-    };
+    const upd = () =>
+      setTimeLeft(Math.max(0, new Date(job.negotiationExpiry) - Date.now()));
     upd();
     const t = setInterval(upd, 1000);
     return () => clearInterval(t);
@@ -543,10 +607,11 @@ function NegotiateChat({ job, onClose }) {
 
   useEffect(() => {
     api
-      .get(`/messages/${job._id}`)
+      .get("/messages/" + job._id)
       .then((r) => setMessages(r.data || []))
       .catch(() => {});
   }, [job._id]);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -555,7 +620,7 @@ function NegotiateChat({ job, onClose }) {
     if (!content?.trim()) return;
     setSending(true);
     try {
-      const r = await api.post(`/messages/${job._id}`, {
+      const r = await api.post("/messages/" + job._id, {
         text: content,
         targetLang: "en",
       });
@@ -575,7 +640,7 @@ function NegotiateChat({ job, onClose }) {
       return;
     }
     const rec = new SR();
-    rec.lang = "en-US";
+    rec.lang = "";
     rec.onstart = () => setListening(true);
     rec.onend = () => setListening(false);
     rec.onerror = () => setListening(false);
@@ -583,8 +648,8 @@ function NegotiateChat({ job, onClose }) {
     rec.start();
   };
 
-  const mins = Math.floor(timeLeft / 60000),
-    secs = Math.floor((timeLeft % 60000) / 1000);
+  const mins = Math.floor(timeLeft / 60000);
+  const secs = Math.floor((timeLeft % 60000) / 1000);
   const urgent = timeLeft < 60000 && timeLeft > 0;
 
   return (
@@ -631,26 +696,28 @@ function NegotiateChat({ job, onClose }) {
                   color: "#fff",
                 }}
               >
-                Negotiate with {job.clientId?.name}
+                Chat with {job.clientId?.name}
               </div>
               <div style={{ fontSize: 11.5, color: "rgba(167,139,250,0.7)" }}>
-                Speak or type — translated to English for client
+                Speak or type — auto-translated
               </div>
             </div>
-            <div
-              style={{
-                padding: "5px 12px",
-                borderRadius: 20,
-                background: urgent
-                  ? "rgba(248,113,113,0.15)"
-                  : "rgba(167,139,250,0.15)",
-                color: urgent ? "#f87171" : "#a78bfa",
-                fontSize: 13,
-                fontWeight: 700,
-              }}
-            >
-              {mins}:{secs.toString().padStart(2, "0")}
-            </div>
+            {job.negotiationExpiry && (
+              <div
+                style={{
+                  padding: "5px 12px",
+                  borderRadius: 20,
+                  background: urgent
+                    ? "rgba(248,113,113,0.15)"
+                    : "rgba(167,139,250,0.15)",
+                  color: urgent ? "#f87171" : "#a78bfa",
+                  fontSize: 13,
+                  fontWeight: 700,
+                }}
+              >
+                {mins}:{secs.toString().padStart(2, "0")}
+              </div>
+            )}
             <button
               onClick={onClose}
               style={{
@@ -678,6 +745,7 @@ function NegotiateChat({ job, onClose }) {
             </div>
           )}
         </div>
+
         <div
           style={{
             flex: 1,
@@ -752,6 +820,7 @@ function NegotiateChat({ job, onClose }) {
           })}
           <div ref={bottomRef} />
         </div>
+
         <div
           style={{
             padding: "10px 14px",
@@ -841,6 +910,7 @@ function NegotiateChat({ job, onClose }) {
   );
 }
 
+// ── Main component ────────────────────────────────────────────────────────────
 export default function WorkerJobs() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -866,37 +936,36 @@ export default function WorkerJobs() {
 
   useEffect(() => {
     const socket = getSocket();
-    socket.on("arrival_verified", (d) => {
-      setNotif({
-        title: "Client verified! Work started 🔨",
-        message: d.message,
-      });
-      fetchJobs();
-    });
-    socket.on("new_review", (d) => {
-      setNotif({ title: `New ${d.rating}★ Review!`, message: d.message });
-    });
-    socket.on("payment_dispute_worker", (d) => {
-      setNotif({ title: "⚠ Payment Dispute", message: d.message });
-      fetchJobs();
-    });
-    socket.on("job_completed_worker", (d) => {
-      setNotif({ title: "Job closed ✅", message: d.message });
-      fetchJobs();
-    });
-    return () => {
-      [
-        "arrival_verified",
-        "new_review",
-        "payment_dispute_worker",
-        "job_completed_worker",
-      ].forEach((e) => socket.off(e));
+    const handlers = {
+      arrival_verified: (d) => {
+        setNotif({
+          title: "Client verified! Work started 🔨",
+          message: d.message,
+        });
+        fetchJobs();
+      },
+      new_review: (d) => {
+        setNotif({
+          title: "New " + d.rating + "★ Review!",
+          message: d.message,
+        });
+      },
+      payment_dispute_worker: (d) => {
+        setNotif({ title: "⚠ Payment Dispute", message: d.message });
+        fetchJobs();
+      },
+      job_completed_worker: (d) => {
+        setNotif({ title: "Job closed ✅", message: d.message });
+        fetchJobs();
+      },
     };
+    Object.entries(handlers).forEach(([ev, fn]) => socket.on(ev, fn));
+    return () => Object.keys(handlers).forEach((ev) => socket.off(ev));
   }, [fetchJobs]);
 
   const action = async (id, endpoint, body = {}) => {
     try {
-      await api.put(`/jobs/${id}/${endpoint}`, body);
+      await api.put("/jobs/" + id + "/" + endpoint, body);
       fetchJobs();
     } catch (e) {
       alert("Failed: " + (e.response?.data?.message || e.message));
@@ -905,32 +974,38 @@ export default function WorkerJobs() {
 
   const handleNegotiate = async (job) => {
     try {
-      await api.put(`/jobs/${job._id}/negotiate`);
+      await api.put("/jobs/" + job._id + "/negotiate");
+      fetchJobs();
       const fresh = await api.get("/jobs/worker");
       const updated = (fresh.data || []).find((j) => j._id === job._id);
       if (updated) setChatJob(updated);
-      fetchJobs();
     } catch (e) {
       alert("Failed: " + (e.response?.data?.message || e.message));
     }
   };
 
-  // ✅ FIX: Use "en-route" (with hyphen) to match backend route exactly
   const handleEnRoute = async (job) => {
     const eta = etaInputs[job._id] || "";
     try {
-      await api.put(`/jobs/${job._id}/en-route`, { eta: eta || undefined });
+      await api.put("/jobs/" + job._id + "/" + EN_ROUTE_PATH, {
+        eta: eta || undefined,
+      });
       fetchJobs();
-      // After going en route, open the OTP entry modal
-      // Re-fetch to get the updated job with latest data
       const fresh = await api.get("/jobs/worker");
       const updated = (fresh.data || []).find((j) => j._id === job._id);
       setArrivalOtpJob(updated || job);
     } catch (e) {
-      console.error("En route error:", e.response?.data || e.message);
-      alert(
-        "Failed to go en route: " + (e.response?.data?.message || e.message),
-      );
+      const status = e.response?.status;
+      const msg = e.response?.data?.message || e.message;
+      if (status === 404) {
+        alert(
+          "Route not found (404).\n\nCheck your backend job.routes.js and make sure this route exists:\nPUT /jobs/:id/" +
+            EN_ROUTE_PATH +
+            "\n\nThen update EN_ROUTE_PATH at the top of Jobs.jsx to match.",
+        );
+      } else {
+        alert("Failed to go en route: " + msg);
+      }
     }
   };
 
@@ -943,12 +1018,6 @@ export default function WorkerJobs() {
   const pastJobs = jobs.filter((j) =>
     ["completed", "rejected", "rated", "payment_dispute"].includes(j.status),
   );
-
-  const tabs = [
-    { id: "new", label: `New (${newJobs.length})` },
-    { id: "active", label: `Active (${activeJobs.length})` },
-    { id: "past", label: `Past (${pastJobs.length})` },
-  ];
   const shown =
     tab === "new" ? newJobs : tab === "active" ? activeJobs : pastJobs;
 
@@ -962,7 +1031,11 @@ export default function WorkerJobs() {
 
   return (
     <div style={{ maxWidth: 700, fontFamily: "'Manrope',sans-serif" }}>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Manrope:wght@400;500;600&display=swap');
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+      `}</style>
 
       {notif && <Toast notif={notif} onDismiss={() => setNotif(null)} />}
       {chatJob && (
@@ -1001,6 +1074,7 @@ export default function WorkerJobs() {
         </p>
       </div>
 
+      {/* Tabs */}
       <div
         style={{
           display: "flex",
@@ -1012,7 +1086,11 @@ export default function WorkerJobs() {
           width: "fit-content",
         }}
       >
-        {tabs.map((t) => (
+        {[
+          { id: "new", label: "New (" + newJobs.length + ")" },
+          { id: "active", label: "Active (" + activeJobs.length + ")" },
+          { id: "past", label: "Past (" + pastJobs.length + ")" },
+        ].map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
@@ -1089,6 +1167,7 @@ export default function WorkerJobs() {
 
           return (
             <div key={job._id} style={card}>
+              {/* Header */}
               <div
                 style={{
                   display: "flex",
@@ -1151,7 +1230,7 @@ export default function WorkerJobs() {
                 </span>
               </div>
 
-              {/* Price + Location — truncated */}
+              {/* Price + Location */}
               <div
                 style={{
                   display: "grid",
@@ -1225,11 +1304,29 @@ export default function WorkerJobs() {
                     >
                       {job.location}
                     </div>
+                    {/* ✅ Google Maps link */}
+                    <a
+                      href={
+                        "https://www.google.com/maps/search/?api=1&query=" +
+                        encodeURIComponent(job.location)
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        fontSize: 11,
+                        color: "#60a5fa",
+                        textDecoration: "none",
+                        marginTop: 3,
+                        display: "inline-block",
+                      }}
+                    >
+                      📍 Open in Maps
+                    </a>
                   </div>
                 )}
               </div>
 
-              {/* Context messages */}
+              {/* Context banners */}
               {isOngoing && (
                 <div
                   style={{
@@ -1257,7 +1354,7 @@ export default function WorkerJobs() {
                 </div>
               )}
 
-              {isWorkDone && (
+              {isWorkDone && !job.completionOtp && (
                 <div
                   style={{
                     marginBottom: 12,
@@ -1284,7 +1381,53 @@ export default function WorkerJobs() {
                 </div>
               )}
 
-              {/* ETA input for accepted jobs */}
+              {/* ✅ If completion OTP was generated — keep showing it on the job card too */}
+              {isWorkDone && job.completionOtp && (
+                <div
+                  style={{
+                    marginBottom: 12,
+                    padding: "14px 16px",
+                    background: "rgba(74,222,128,0.06)",
+                    border: "2px solid rgba(74,222,128,0.25)",
+                    borderRadius: 12,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: "rgba(255,255,255,0.4)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                      marginBottom: 6,
+                    }}
+                  >
+                    Completion Code — Show to client
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: "'Syne',sans-serif",
+                      fontSize: 42,
+                      fontWeight: 900,
+                      letterSpacing: 10,
+                      color: "#4ade80",
+                    }}
+                  >
+                    {job.completionOtp}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "rgba(255,255,255,0.3)",
+                      marginTop: 4,
+                    }}
+                  >
+                    Visible until client enters it on their screen
+                  </div>
+                </div>
+              )}
+
+              {/* ETA input for accepted */}
               {isAccepted && (
                 <div style={{ marginBottom: 12 }}>
                   <input
@@ -1309,6 +1452,7 @@ export default function WorkerJobs() {
                 </div>
               )}
 
+              {/* Action buttons */}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {isPending && (
                   <>
@@ -1342,7 +1486,7 @@ export default function WorkerJobs() {
                         fontFamily: "'Manrope',sans-serif",
                       }}
                     >
-                      💬 Negotiate
+                      💬 Chat
                     </button>
                     <button
                       onClick={() => action(job._id, "reject")}
@@ -1416,7 +1560,6 @@ export default function WorkerJobs() {
                   </>
                 )}
 
-                {/* ✅ En Route uses correct "en-route" path */}
                 {isAccepted && (
                   <button
                     onClick={() => handleEnRoute(job)}
@@ -1477,7 +1620,7 @@ export default function WorkerJobs() {
                 {(isAccepted || isOngoing || isVerified) &&
                   job.clientId?.contact && (
                     <a
-                      href={`tel:${job.clientId.contact}`}
+                      href={"tel:" + job.clientId.contact}
                       style={{
                         padding: "9px 16px",
                         background: "rgba(34,197,94,0.1)",

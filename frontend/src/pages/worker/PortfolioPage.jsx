@@ -1,3 +1,4 @@
+// src/pages/worker/PortfolioPage.jsx
 import { useState, useEffect, useContext, useRef } from "react";
 import api from "../../services/api.services.js";
 import { useWorker } from "../../context/WorkerContext.jsx";
@@ -14,16 +15,19 @@ const ALL_LANGUAGES = [
   "Marathi",
 ];
 
-// ── Category list: "tailor" replaced with "steam_ironing" ──────────────────
-// Make sure your categoryData.js has an entry for "steam_ironing"
-// with icon, label, and workTypes. See note at bottom of this file.
+// "tailor" is stored as "steam_ironing" for display
 const DISPLAY_CATEGORIES = ALL_CATEGORIES.map((c) =>
   c === "tailor" ? "steam_ironing" : c,
 );
 
+function normalizeCategory(cat) {
+  if (!cat) return "";
+  return cat === "tailor" ? "steam_ironing" : cat;
+}
+
 function isBlipDescription(text) {
   if (!text || text.trim().length < 15) return true;
-  var blipPhrases = [
+  const blipPhrases = [
     "a person is",
     "a man is",
     "a woman is",
@@ -52,21 +56,19 @@ function isBlipDescription(text) {
     "a person ironing",
     "person pressing clothes",
   ];
-  return blipPhrases.some(function (b) {
-    return text.toLowerCase().includes(b);
-  });
+  return blipPhrases.some((b) => text.toLowerCase().includes(b));
 }
 
 async function translateToEnglish(text) {
   try {
-    var res = await api.post("/auth/translate", { text, targetLang: "en" });
+    const res = await api.post("/auth/translate", { text, targetLang: "en" });
     return res.data.translated || text;
   } catch {
     return text;
   }
 }
 
-var ALL_NUMBERS = {
+const ALL_NUMBERS = {
   one: 1,
   two: 2,
   three: 3,
@@ -160,51 +162,45 @@ var ALL_NUMBERS = {
 };
 
 function parseIndianNumbers(text) {
-  var result = text.toLowerCase();
-  var entries = Object.entries(ALL_NUMBERS).sort(function (a, b) {
-    return b[0].length - a[0].length;
-  });
-  entries.forEach(function (entry) {
+  let result = text.toLowerCase();
+  const entries = Object.entries(ALL_NUMBERS).sort(
+    (a, b) => b[0].length - a[0].length,
+  );
+  entries.forEach(([word, num]) => {
     result = result.replace(
-      new RegExp("\\b" + entry[0] + "\\b", "gi"),
-      entry[1].toString(),
+      new RegExp("\\b" + word + "\\b", "gi"),
+      num.toString(),
     );
   });
   return result;
 }
 
 function useVoiceInput(onResult, parseNumbers) {
-  var [listening, setListening] = useState(false);
-  var recRef = useRef(null);
-  var start = function () {
-    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const [listening, setListening] = useState(false);
+  const recRef = useRef(null);
+  const start = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
       alert("Speech recognition requires Chrome browser.");
       return;
     }
-    var rec = new SR();
+    const rec = new SR();
     recRef.current = rec;
     rec.lang = "";
     rec.continuous = false;
     rec.interimResults = false;
-    rec.onstart = function () {
-      setListening(true);
-    };
-    rec.onend = function () {
-      setListening(false);
-    };
-    rec.onerror = function () {
-      setListening(false);
-    };
-    rec.onresult = async function (e) {
-      var raw = e.results[0][0].transcript;
-      var processed = parseNumbers ? parseIndianNumbers(raw) : raw;
-      var english = await translateToEnglish(processed);
+    rec.onstart = () => setListening(true);
+    rec.onend = () => setListening(false);
+    rec.onerror = () => setListening(false);
+    rec.onresult = async (e) => {
+      const raw = e.results[0][0].transcript;
+      const processed = parseNumbers ? parseIndianNumbers(raw) : raw;
+      const english = await translateToEnglish(processed);
       onResult(english, raw);
     };
     rec.start();
   };
-  var stop = function () {
+  const stop = () => {
     if (recRef.current) recRef.current.stop();
     setListening(false);
   };
@@ -212,21 +208,15 @@ function useVoiceInput(onResult, parseNumbers) {
 }
 
 export default function PortfolioPage() {
-  var { portfolio, loading, refreshPortfolio, user } = useWorker();
-  var { t } = useContext(LanguageContext);
+  const { portfolio, loading, refreshPortfolio, user } = useWorker();
+  const { t } = useContext(LanguageContext);
 
-  var [saving, setSaving] = useState(false);
-  var [saved, setSaved] = useState(false);
-  var [errors, setErrors] = useState({});
-  var [newSkill, setNewSkill] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [newSkill, setNewSkill] = useState("");
 
-  // Normalize category: map "tailor" → "steam_ironing" for display
-  function normalizeCategory(cat) {
-    if (!cat) return "";
-    return cat === "tailor" ? "steam_ironing" : cat;
-  }
-
-  var [form, setForm] = useState({
+  const [form, setForm] = useState({
     name: "",
     age: "",
     gender: "",
@@ -235,7 +225,6 @@ export default function PortfolioPage() {
     experience: "",
     description: "",
     skills: [],
-    // Pre-fill category from user registration immediately
     category: normalizeCategory(user?.category) || "",
     videoUrl: "",
     languagesKnown: [],
@@ -244,86 +233,76 @@ export default function PortfolioPage() {
     priceMax: "",
   });
 
-  useEffect(
-    function () {
-      // Always prefer live user data for name/email
-      // portfolio data fills in the rest
-      var cat = normalizeCategory(portfolio?.category || user?.category || "");
+  // ── Sync form from portfolio + user on load ──────────────────────────────
+  useEffect(() => {
+    // Determine category: user registration → portfolio fallback
+    const cat = normalizeCategory(user?.category || portfolio?.category || "");
 
-      if (portfolio) {
-        setForm({
-          name: user?.name || portfolio.name || "",
-          age: portfolio.age || "",
-          gender: portfolio.gender || "",
-          email: user?.email || portfolio.email || "",
-          contact: portfolio.contact || "",
-          experience: portfolio.experience || "",
-          description: isBlipDescription(portfolio.description)
-            ? ""
-            : portfolio.description || "",
-          skills: portfolio.skills || [],
-          category: cat,
-          videoUrl: portfolio.videoUrl || "",
-          languagesKnown: portfolio.languagesKnown || [],
-          selectedWorkTypes: portfolio.selectedWorkTypes || [],
-          priceMin: portfolio.priceMin || "",
-          priceMax: portfolio.priceMax || "",
-        });
-      } else if (user) {
-        setForm(function (p) {
-          return {
-            ...p,
-            name: user.name || "",
-            email: user.email || "",
-            category: cat,
-          };
-        });
-      }
-    },
-    [portfolio, user],
-  );
-
-  var voiceAbout = useVoiceInput(function (english) {
-    setForm(function (p) {
-      return {
+    if (portfolio) {
+      setForm({
+        name: user?.name || portfolio.name || "",
+        age: portfolio.age || "",
+        gender: portfolio.gender || "",
+        email: user?.email || portfolio.email || "",
+        contact: portfolio.contact || "",
+        experience: portfolio.experience || "",
+        description: isBlipDescription(portfolio.description)
+          ? ""
+          : portfolio.description || "",
+        skills: portfolio.skills || [],
+        category: cat,
+        videoUrl: portfolio.videoUrl || "",
+        languagesKnown: portfolio.languagesKnown || [],
+        selectedWorkTypes: portfolio.selectedWorkTypes || [],
+        priceMin: portfolio.priceMin || "",
+        priceMax: portfolio.priceMax || "",
+      });
+    } else if (user) {
+      setForm((p) => ({
         ...p,
-        description: p.description ? p.description + " " + english : english,
-      };
-    });
+        name: user.name || "",
+        email: user.email || "",
+        category: cat,
+      }));
+    }
+  }, [portfolio, user]);
+
+  // ── Voice inputs ─────────────────────────────────────────────────────────
+  const voiceAbout = useVoiceInput((english) => {
+    setForm((p) => ({
+      ...p,
+      description: p.description ? p.description + " " + english : english,
+    }));
   }, false);
 
-  var voiceSkill = useVoiceInput(function (english) {
-    var words = english.split(/[,،、]/);
-    setForm(function (p) {
-      var newSkills = [...p.skills];
-      words.forEach(function (w) {
-        var s = w.trim();
+  const voiceSkill = useVoiceInput((english) => {
+    const words = english.split(/[,،、]/);
+    setForm((p) => {
+      const newSkills = [...p.skills];
+      words.forEach((w) => {
+        const s = w.trim();
         if (s && s.length > 1 && !newSkills.includes(s)) newSkills.push(s);
       });
       return { ...p, skills: newSkills };
     });
   }, false);
 
-  var voicePriceMin = useVoiceInput(function (english) {
-    var nums = english.match(/\d+/g);
-    if (nums && nums.length > 0)
-      setForm(function (p) {
-        return { ...p, priceMin: nums[0] };
-      });
+  const voicePriceMin = useVoiceInput((english) => {
+    const nums = english.match(/\d+/g);
+    if (nums?.length > 0) setForm((p) => ({ ...p, priceMin: nums[0] }));
   }, true);
 
-  var voicePriceMax = useVoiceInput(function (english) {
-    var nums = english.match(/\d+/g);
-    if (nums && nums.length > 0)
-      setForm(function (p) {
-        return { ...p, priceMax: nums[0] };
-      });
+  const voicePriceMax = useVoiceInput((english) => {
+    const nums = english.match(/\d+/g);
+    if (nums?.length > 0) setForm((p) => ({ ...p, priceMax: nums[0] }));
   }, true);
 
-  var catData = CATEGORY_DATA[form.category] || null;
+  // ── Derived ──────────────────────────────────────────────────────────────
+  const catData = CATEGORY_DATA[form.category] || null;
 
-  var validate = function () {
-    var e = {};
+  // ── Validation ───────────────────────────────────────────────────────────
+  const validate = () => {
+    const e = {};
     if (!form.category) e.category = "Select your category";
     if (!form.name?.trim()) e.name = "Full name required";
     if (!form.contact?.trim()) e.contact = "Contact number required";
@@ -333,7 +312,8 @@ export default function PortfolioPage() {
     return Object.keys(e).length === 0;
   };
 
-  var handleSave = async function () {
+  // ── Save ─────────────────────────────────────────────────────────────────
+  const handleSave = async () => {
     if (!validate()) return;
     setSaving(true);
     setSaved(false);
@@ -356,9 +336,7 @@ export default function PortfolioPage() {
       });
       await refreshPortfolio();
       setSaved(true);
-      setTimeout(function () {
-        setSaved(false);
-      }, 3000);
+      setTimeout(() => setSaved(false), 3000);
     } catch (err) {
       alert("Error saving: " + (err.response?.data?.message || err.message));
     } finally {
@@ -366,57 +344,39 @@ export default function PortfolioPage() {
     }
   };
 
-  var addSkill = function () {
-    var s = newSkill.trim();
+  // ── Helpers ──────────────────────────────────────────────────────────────
+  const addSkill = () => {
+    const s = newSkill.trim();
     if (s && !form.skills.includes(s))
-      setForm(function (p) {
-        return { ...p, skills: [...p.skills, s] };
-      });
+      setForm((p) => ({ ...p, skills: [...p.skills, s] }));
     setNewSkill("");
   };
-  var removeSkill = function (s) {
-    setForm(function (p) {
-      return {
-        ...p,
-        skills: p.skills.filter(function (x) {
-          return x !== s;
-        }),
-      };
-    });
-  };
-  var toggleLang = function (lang) {
-    setForm(function (p) {
-      return {
-        ...p,
-        languagesKnown: p.languagesKnown.includes(lang)
-          ? p.languagesKnown.filter(function (l) {
-              return l !== lang;
-            })
-          : [...p.languagesKnown, lang],
-      };
-    });
-  };
-  var toggleWorkType = function (id) {
-    setForm(function (p) {
-      return {
-        ...p,
-        selectedWorkTypes: p.selectedWorkTypes.includes(id)
-          ? p.selectedWorkTypes.filter(function (x) {
-              return x !== id;
-            })
-          : [...p.selectedWorkTypes, id],
-      };
-    });
-  };
+  const removeSkill = (s) =>
+    setForm((p) => ({ ...p, skills: p.skills.filter((x) => x !== s) }));
+  const toggleLang = (lang) =>
+    setForm((p) => ({
+      ...p,
+      languagesKnown: p.languagesKnown.includes(lang)
+        ? p.languagesKnown.filter((l) => l !== lang)
+        : [...p.languagesKnown, lang],
+    }));
+  const toggleWorkType = (id) =>
+    setForm((p) => ({
+      ...p,
+      selectedWorkTypes: p.selectedWorkTypes.includes(id)
+        ? p.selectedWorkTypes.filter((x) => x !== id)
+        : [...p.selectedWorkTypes, id],
+    }));
 
-  var card = {
+  // ── Style tokens ─────────────────────────────────────────────────────────
+  const card = {
     background: "#1a1a1a",
     border: "1px solid rgba(255,255,255,0.07)",
     borderRadius: 16,
     padding: "22px 24px",
     marginBottom: 14,
   };
-  var lb = {
+  const lb = {
     fontSize: 11,
     fontWeight: 600,
     color: "rgba(255,255,255,0.38)",
@@ -425,7 +385,7 @@ export default function PortfolioPage() {
     display: "block",
     marginBottom: 7,
   };
-  var inp = {
+  const inp = {
     width: "100%",
     background: "rgba(255,255,255,0.05)",
     border: "1px solid rgba(255,255,255,0.1)",
@@ -437,14 +397,13 @@ export default function PortfolioPage() {
     outline: "none",
     boxSizing: "border-box",
   };
-  var errSt = { fontSize: 12, color: "#f87171", marginTop: 4 };
-  var req = <span style={{ color: "#f87171", marginLeft: 3 }}>*</span>;
+  const errSt = { fontSize: 12, color: "#f87171", marginTop: 4 };
+  const req = <span style={{ color: "#f87171", marginLeft: 3 }}>*</span>;
 
-  function VoiceBtn(props) {
-    var active = props.active;
+  function VoiceBtn({ active, onStart, onStop, label }) {
     return (
       <button
-        onClick={active ? props.onStop : props.onStart}
+        onClick={active ? onStop : onStart}
         style={{
           display: "flex",
           alignItems: "center",
@@ -489,13 +448,14 @@ export default function PortfolioPage() {
               <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
               <line x1="12" y1="19" x2="12" y2="23" />
             </svg>
-            {props.label}
+            {label}
           </>
         )}
       </button>
     );
   }
 
+  // ── Loading ───────────────────────────────────────────────────────────────
   if (loading)
     return (
       <div
@@ -505,6 +465,7 @@ export default function PortfolioPage() {
       </div>
     );
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div style={{ maxWidth: 700 }}>
       <style>{`
@@ -519,6 +480,7 @@ export default function PortfolioPage() {
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
       `}</style>
 
+      {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <h2
           style={{
@@ -536,6 +498,7 @@ export default function PortfolioPage() {
         </p>
       </div>
 
+      {/* No portfolio banner */}
       {!portfolio && (
         <div
           style={{
@@ -567,6 +530,7 @@ export default function PortfolioPage() {
         </div>
       )}
 
+      {/* Video preview */}
       {form.videoUrl && (
         <div style={card}>
           <label style={lb}>
@@ -595,7 +559,7 @@ export default function PortfolioPage() {
         </div>
       )}
 
-      {/* ── Category — pre-selected from registration, read-only feel ── */}
+      {/* ── Category — auto-selected from registration, read-only highlight ── */}
       <div style={card}>
         <label style={lb}>
           Worker Category {req}
@@ -612,34 +576,33 @@ export default function PortfolioPage() {
           </span>
         </label>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {DISPLAY_CATEGORIES.map(function (cat) {
-            var cd = CATEGORY_DATA[cat];
+          {DISPLAY_CATEGORIES.map((cat) => {
+            const cd = CATEGORY_DATA[cat];
             if (!cd) return null;
+            const isSelected = form.category === cat;
             return (
               <button
                 key={cat}
                 className="pp-cat"
-                onClick={function () {
-                  setForm(function (p) {
-                    return { ...p, category: cat, selectedWorkTypes: [] };
-                  });
-                  setErrors(function (e) {
-                    return { ...e, category: undefined };
-                  });
+                // Allow clicking to switch (in case user wants to change)
+                onClick={() => {
+                  setForm((p) => ({
+                    ...p,
+                    category: cat,
+                    selectedWorkTypes: [],
+                  }));
+                  setErrors((e) => ({ ...e, category: undefined }));
                 }}
                 style={{
                   padding: "8px 18px",
                   borderRadius: 20,
-                  border:
-                    form.category === cat
-                      ? "1.5px solid #c8f135"
-                      : "1.5px solid rgba(255,255,255,0.12)",
-                  background:
-                    form.category === cat
-                      ? "rgba(200,241,53,0.12)"
-                      : "rgba(255,255,255,0.04)",
-                  color:
-                    form.category === cat ? "#c8f135" : "rgba(255,255,255,0.5)",
+                  border: isSelected
+                    ? "1.5px solid #c8f135"
+                    : "1.5px solid rgba(255,255,255,0.12)",
+                  background: isSelected
+                    ? "rgba(200,241,53,0.12)"
+                    : "rgba(255,255,255,0.04)",
+                  color: isSelected ? "#c8f135" : "rgba(255,255,255,0.5)",
                   fontFamily: "'Manrope',sans-serif",
                   fontSize: 13,
                   fontWeight: 600,
@@ -659,7 +622,7 @@ export default function PortfolioPage() {
         {errors.category && <div style={errSt}>{errors.category}</div>}
       </div>
 
-      {/* Work Types + Pricing */}
+      {/* ── Work Types + Pricing — opens automatically when category is set ── */}
       {catData && (
         <div style={card}>
           <label style={lb}>Services You Offer &amp; Pricing (₹)</label>
@@ -680,21 +643,20 @@ export default function PortfolioPage() {
               marginBottom: 20,
             }}
           >
-            {catData.workTypes.map(function (wt) {
+            {catData.workTypes.map((wt) => {
+              const sel = form.selectedWorkTypes.includes(wt.id);
               return (
                 <button
                   key={wt.id}
                   className="pp-work-pill"
-                  onClick={function () {
-                    toggleWorkType(wt.id);
-                  }}
+                  onClick={() => toggleWorkType(wt.id)}
                   style={{
                     padding: "10px 14px",
                     borderRadius: 12,
-                    border: form.selectedWorkTypes.includes(wt.id)
+                    border: sel
                       ? "1.5px solid #c8f135"
                       : "1.5px solid rgba(255,255,255,0.1)",
-                    background: form.selectedWorkTypes.includes(wt.id)
+                    background: sel
                       ? "rgba(200,241,53,0.08)"
                       : "rgba(255,255,255,0.03)",
                     cursor: "pointer",
@@ -707,9 +669,7 @@ export default function PortfolioPage() {
                     style={{
                       fontSize: 13,
                       fontWeight: 600,
-                      color: form.selectedWorkTypes.includes(wt.id)
-                        ? "#c8f135"
-                        : "#fff",
+                      color: sel ? "#c8f135" : "#fff",
                       marginBottom: 3,
                     }}
                   >
@@ -724,6 +684,7 @@ export default function PortfolioPage() {
             })}
           </div>
 
+          {/* Price range */}
           <div
             style={{
               background: "rgba(255,255,255,0.03)",
@@ -749,6 +710,7 @@ export default function PortfolioPage() {
                 gap: 12,
               }}
             >
+              {/* Min */}
               <div>
                 <div
                   style={{
@@ -791,16 +753,15 @@ export default function PortfolioPage() {
                     className="pp-inp"
                     type="number"
                     value={form.priceMin}
-                    onChange={function (e) {
-                      setForm(function (p) {
-                        return { ...p, priceMin: e.target.value };
-                      });
-                    }}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, priceMin: e.target.value }))
+                    }
                     placeholder="e.g. 200"
                     style={{ ...inp, paddingLeft: 28 }}
                   />
                 </div>
               </div>
+              {/* Max */}
               <div>
                 <div
                   style={{
@@ -843,11 +804,9 @@ export default function PortfolioPage() {
                     className="pp-inp"
                     type="number"
                     value={form.priceMax}
-                    onChange={function (e) {
-                      setForm(function (p) {
-                        return { ...p, priceMax: e.target.value };
-                      });
-                    }}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, priceMax: e.target.value }))
+                    }
                     placeholder="e.g. 2000"
                     style={{ ...inp, paddingLeft: 28 }}
                   />
@@ -871,7 +830,7 @@ export default function PortfolioPage() {
         </div>
       )}
 
-      {/* About You */}
+      {/* ── About You ── */}
       <div style={card}>
         <div
           style={{
@@ -916,15 +875,13 @@ export default function PortfolioPage() {
           className="pp-inp"
           placeholder="Describe your skills and experience…"
           value={form.description}
-          onChange={function (e) {
-            setForm({ ...form, description: e.target.value });
-          }}
+          onChange={(e) => setForm({ ...form, description: e.target.value })}
           rows={4}
           style={{ ...inp, resize: "vertical", lineHeight: 1.65 }}
         />
       </div>
 
-      {/* Skills */}
+      {/* ── Skills ── */}
       <div style={card}>
         <div
           style={{
@@ -955,45 +912,39 @@ export default function PortfolioPage() {
             marginBottom: 10,
           }}
         >
-          {form.skills.map(function (sk) {
-            return (
+          {form.skills.map((sk) => (
+            <span
+              key={sk}
+              style={{
+                padding: "5px 12px",
+                background: "rgba(200,241,53,0.1)",
+                color: "#c8f135",
+                borderRadius: 20,
+                fontSize: 12,
+                fontWeight: 600,
+                border: "1px solid rgba(200,241,53,0.2)",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              {sk}
               <span
-                key={sk}
-                style={{
-                  padding: "5px 12px",
-                  background: "rgba(200,241,53,0.1)",
-                  color: "#c8f135",
-                  borderRadius: 20,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  border: "1px solid rgba(200,241,53,0.2)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
+                onClick={() => removeSkill(sk)}
+                style={{ cursor: "pointer", fontSize: 14, opacity: 0.6 }}
               >
-                {sk}
-                <span
-                  onClick={function () {
-                    removeSkill(sk);
-                  }}
-                  style={{ cursor: "pointer", fontSize: 14, opacity: 0.6 }}
-                >
-                  ×
-                </span>
+                ×
               </span>
-            );
-          })}
+            </span>
+          ))}
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <input
             className={"pp-inp" + (errors.skills ? " pp-err" : "")}
             placeholder="Type a skill and press Enter…"
             value={newSkill}
-            onChange={function (e) {
-              setNewSkill(e.target.value);
-            }}
-            onKeyDown={function (e) {
+            onChange={(e) => setNewSkill(e.target.value)}
+            onKeyDown={(e) => {
               if (e.key === "Enter") addSkill();
             }}
             style={{ ...inp, flex: 1 }}
@@ -1017,30 +968,27 @@ export default function PortfolioPage() {
         {errors.skills && <div style={errSt}>{errors.skills}</div>}
       </div>
 
-      {/* Languages Known */}
+      {/* ── Languages Known ── */}
       <div style={card}>
         <label style={lb}>Languages Known</label>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {ALL_LANGUAGES.map(function (lang) {
+          {ALL_LANGUAGES.map((lang) => {
+            const sel = form.languagesKnown.includes(lang);
             return (
               <button
                 key={lang}
                 className="pp-lang-pill"
-                onClick={function () {
-                  toggleLang(lang);
-                }}
+                onClick={() => toggleLang(lang)}
                 style={{
                   padding: "7px 16px",
                   borderRadius: 20,
-                  border: form.languagesKnown.includes(lang)
+                  border: sel
                     ? "1.5px solid #c8f135"
                     : "1.5px solid rgba(255,255,255,0.12)",
-                  background: form.languagesKnown.includes(lang)
+                  background: sel
                     ? "rgba(200,241,53,0.1)"
                     : "rgba(255,255,255,0.04)",
-                  color: form.languagesKnown.includes(lang)
-                    ? "#c8f135"
-                    : "rgba(255,255,255,0.45)",
+                  color: sel ? "#c8f135" : "rgba(255,255,255,0.45)",
                   fontFamily: "'Manrope',sans-serif",
                   fontSize: 13,
                   fontWeight: 600,
@@ -1055,7 +1003,7 @@ export default function PortfolioPage() {
         </div>
       </div>
 
-      {/* Personal Details */}
+      {/* ── Personal Details ── */}
       <div style={card}>
         <div
           style={{
@@ -1077,13 +1025,9 @@ export default function PortfolioPage() {
             <input
               className={"pp-inp" + (errors.name ? " pp-err" : "")}
               value={form.name}
-              onChange={function (e) {
-                setForm(function (p) {
-                  return { ...p, name: e.target.value };
-                });
-                setErrors(function (e2) {
-                  return { ...e2, name: undefined };
-                });
+              onChange={(e) => {
+                setForm((p) => ({ ...p, name: e.target.value }));
+                setErrors((e2) => ({ ...e2, name: undefined }));
               }}
               style={inp}
               placeholder="Full name"
@@ -1096,11 +1040,7 @@ export default function PortfolioPage() {
               className="pp-inp"
               type="number"
               value={form.age}
-              onChange={function (e) {
-                setForm(function (p) {
-                  return { ...p, age: e.target.value };
-                });
-              }}
+              onChange={(e) => setForm((p) => ({ ...p, age: e.target.value }))}
               style={inp}
               placeholder="e.g. 30"
               min="18"
@@ -1128,13 +1068,9 @@ export default function PortfolioPage() {
               className={"pp-inp" + (errors.contact ? " pp-err" : "")}
               type="tel"
               value={form.contact}
-              onChange={function (e) {
-                setForm(function (p) {
-                  return { ...p, contact: e.target.value };
-                });
-                setErrors(function (e2) {
-                  return { ...e2, contact: undefined };
-                });
+              onChange={(e) => {
+                setForm((p) => ({ ...p, contact: e.target.value }));
+                setErrors((e2) => ({ ...e2, contact: undefined }));
               }}
               style={inp}
               placeholder="Phone number"
@@ -1146,13 +1082,9 @@ export default function PortfolioPage() {
             <input
               className={"pp-inp" + (errors.experience ? " pp-err" : "")}
               value={form.experience}
-              onChange={function (e) {
-                setForm(function (p) {
-                  return { ...p, experience: e.target.value };
-                });
-                setErrors(function (e2) {
-                  return { ...e2, experience: undefined };
-                });
+              onChange={(e) => {
+                setForm((p) => ({ ...p, experience: e.target.value }));
+                setErrors((e2) => ({ ...e2, experience: undefined }));
               }}
               style={inp}
               placeholder="e.g. 3 years"
@@ -1165,11 +1097,7 @@ export default function PortfolioPage() {
           <select
             className="pp-inp"
             value={form.gender}
-            onChange={function (e) {
-              setForm(function (p) {
-                return { ...p, gender: e.target.value };
-              });
-            }}
+            onChange={(e) => setForm((p) => ({ ...p, gender: e.target.value }))}
             style={{
               ...inp,
               cursor: "pointer",
@@ -1186,63 +1114,59 @@ export default function PortfolioPage() {
         </div>
       </div>
 
-      {/* Client Reviews */}
+      {/* ── Client Reviews ── */}
       {portfolio?.reviews?.length > 0 && (
         <div style={card}>
           <label style={{ ...lb, marginBottom: 16 }}>
             Client Reviews ({portfolio.reviews.length})
           </label>
-          {portfolio.reviews.map(function (r, i) {
-            return (
+          {portfolio.reviews.map((r, i) => (
+            <div
+              key={i}
+              style={{
+                padding: "14px",
+                background: "rgba(255,255,255,0.03)",
+                borderRadius: 12,
+                marginBottom: 10,
+                border: "1px solid rgba(255,255,255,0.06)",
+              }}
+            >
               <div
-                key={i}
                 style={{
-                  padding: "14px",
-                  background: "rgba(255,255,255,0.03)",
-                  borderRadius: 12,
-                  marginBottom: 10,
-                  border: "1px solid rgba(255,255,255,0.06)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 6,
                 }}
               >
-                <div
+                <span style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>
+                  {r.clientName || "Client"}
+                </span>
+                <span style={{ color: "#fbbf24" }}>
+                  {"★".repeat(r.rating)}
+                  <span style={{ color: "rgba(255,255,255,0.15)" }}>
+                    {"★".repeat(5 - r.rating)}
+                  </span>
+                </span>
+              </div>
+              {r.comment && (
+                <p
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: 6,
+                    fontSize: 13,
+                    color: "rgba(255,255,255,0.45)",
+                    lineHeight: 1.5,
+                    margin: 0,
                   }}
                 >
-                  <span
-                    style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}
-                  >
-                    {r.clientName || "Client"}
-                  </span>
-                  <span style={{ color: "#fbbf24" }}>
-                    {"★".repeat(r.rating)}
-                    <span style={{ color: "rgba(255,255,255,0.15)" }}>
-                      {"★".repeat(5 - r.rating)}
-                    </span>
-                  </span>
-                </div>
-                {r.comment && (
-                  <p
-                    style={{
-                      fontSize: 13,
-                      color: "rgba(255,255,255,0.45)",
-                      lineHeight: 1.5,
-                      margin: 0,
-                    }}
-                  >
-                    {r.comment}
-                  </p>
-                )}
-              </div>
-            );
-          })}
+                  {r.comment}
+                </p>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Save */}
+      {/* ── Save ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <button
           onClick={handleSave}

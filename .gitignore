@@ -29,4 +29,4 @@ node_modules/
 
 venv
 
-uploads
+server/uploads/

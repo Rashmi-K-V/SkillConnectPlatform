@@ -1,4 +1,3 @@
-// src/routes/AppRoutes.jsx
 import { useContext } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext.jsx";
@@ -24,8 +23,8 @@ import BrowseWorkers from "../pages/client/BrowseWorkers.jsx";
 import BrowseAllWorkers from "../pages/client/BrowseAllWorkers.jsx";
 import MyJobs from "../pages/client/MyJobs.jsx";
 import WorkerProfile from "../pages/client/WorkerProfile.jsx";
+import JobTracking from "../pages/client/JobTracking.jsx"; // ✅ added
 
-// ── Get role from JWT token (handles page refresh when AuthContext.user is null) ──
 function getRoleFromToken() {
   try {
     const token = localStorage.getItem("token");
@@ -41,23 +40,20 @@ function getRoleFromToken() {
   }
 }
 
-// ── Redirects to /login if not authenticated ──────────────────
-// ── Redirects to correct dashboard if wrong role ─────────────
 function RequireAuth({ role, children }) {
   const { user } = useContext(AuthContext);
   const currentRole = user?.role || getRoleFromToken();
-
   if (!currentRole) return <Navigate to="/login" replace />;
   if (role && currentRole !== role)
-    return <Navigate to={`/${currentRole}/dashboard`} replace />;
+    return <Navigate to={"/" + currentRole + "/dashboard"} replace />;
   return children;
 }
 
-// ── Redirects already-logged-in users away from /login & /register ──
 function RedirectIfAuth({ children }) {
   const { user } = useContext(AuthContext);
   const currentRole = user?.role || getRoleFromToken();
-  if (currentRole) return <Navigate to={`/${currentRole}/dashboard`} replace />;
+  if (currentRole)
+    return <Navigate to={"/" + currentRole + "/dashboard"} replace />;
   return children;
 }
 
@@ -67,7 +63,6 @@ export default function AppRoutes() {
       <Routes>
         {/* ── Public ── */}
         <Route path="/" element={<SelectLanguage />} />
-
         <Route
           path="/login"
           element={
@@ -76,7 +71,6 @@ export default function AppRoutes() {
             </RedirectIfAuth>
           }
         />
-
         <Route
           path="/register"
           element={
@@ -86,7 +80,7 @@ export default function AppRoutes() {
           }
         />
 
-        {/* ── Worker ── */}
+        {/* ── Worker (nested under layout) ── */}
         <Route
           path="/worker"
           element={
@@ -104,7 +98,7 @@ export default function AppRoutes() {
           <Route path="settings" element={<SettingsPage />} />
         </Route>
 
-        {/* ── Client ── */}
+        {/* ── Client (nested under dashboard layout) ── */}
         <Route
           path="/client"
           element={
@@ -118,6 +112,8 @@ export default function AppRoutes() {
           <Route path="browse" element={<BrowseWorkers />} />
           <Route path="browse-all" element={<BrowseAllWorkers />} />
           <Route path="jobs" element={<MyJobs />} />
+          <Route path="job/:id" element={<JobTracking />} />{" "}
+          {/* ✅ job tracking */}
           <Route path="worker/:workerId" element={<WorkerProfile />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>

@@ -92,7 +92,11 @@ const CATEGORIES = [
   { name: "plumber", icon: "🔧", desc: "Pipes, leaks & fixtures" },
   { name: "cleaner", icon: "🧹", desc: "Home & office cleaning" },
   { name: "cook", icon: "🍳", desc: "Home-cooked meals & catering" },
-  { name: "tailor", icon: "🧵", desc: "Stitching & alterations" },
+  {
+    name: "Steam Ironing",
+    icon: "👔",
+    desc: "Professional steam ironing services",
+  },
 ];
 
 export default function ClientDashboard() {

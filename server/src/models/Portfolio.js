@@ -27,7 +27,7 @@ const portfolioSchema = new mongoose.Schema({
   experience:        { type: String },
 
   // Category and work types
-  category:          { type: String, enum: ["plumber","electrician","cook","cleaner","tailor"] },
+  category:          { type: String, enum: ["plumber","electrician","cook","cleaner","steam ironing"] },
   selectedWorkTypes: { type: [String], default: [] }, // IDs of selected work types
   priceMin:          { type: Number },                // worker's min price
   priceMax:          { type: Number },                // worker's max price
