@@ -1,4 +1,4 @@
-// controllers/job.controller.js
+//controllers/job.controller.js
 import Job       from "../models/Job.js";
 import Portfolio from "../models/Portfolio.js";
 import { io, userSockets } from "../server.js";
@@ -8,7 +8,7 @@ function genOtp() {
   return Math.floor(1000 + Math.random() * 9000).toString();
 }
 
-// ── REQUEST JOB ───────────────────────────────────────────────
+// REQUEST JOB 
 export const requestJob = async (req, res) => {
   try {
     const { workerId, description, location, price, paymentMethod, upiId } = req.body;
@@ -40,7 +40,7 @@ export const requestJob = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-// ── NEGOTIATE ─────────────────────────────────────────────────
+//  NEGOTIATE/CHAt
 export const negotiateJob = async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
@@ -61,7 +61,7 @@ export const negotiateJob = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-// ── ACCEPT ────────────────────────────────────────────────────
+// ACCEPT 
 export const acceptJob = async (req, res) => {
   try {
     const { price } = req.body;
@@ -80,7 +80,7 @@ export const acceptJob = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-// ── REJECT ────────────────────────────────────────────────────
+// REJECT 
 export const rejectJob = async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
@@ -97,7 +97,6 @@ export const rejectJob = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-// In job.controller.js — fix workerEnRoute (404 was because route was /enroute not /en-route)
 export const workerEnRoute = async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
@@ -116,7 +115,7 @@ export const workerEnRoute = async (req, res) => {
     if (req.body.eta) job.eta = req.body.eta;
     await job.save();
 
-    // ✅ Send OTP to CLIENT via socket — they show it on their screen
+    //Send OTP to CLIENT 
     const { io, userSockets } = await import("../server.js");
     if (io && userSockets) {
       const clientSocketId = userSockets[job.clientId.toString()];
@@ -137,7 +136,7 @@ export const workerEnRoute = async (req, res) => {
   }
 };
 
-// ✅ Fix verifyArrivalOtp — was comparing wrong fields
+
 export const verifyArrivalOtp = async (req, res) => {
   try {
     const { otp } = req.body;
@@ -179,7 +178,6 @@ export const verifyArrivalOtp = async (req, res) => {
   }
 };
 
-// ✅ Fix markWorkDone — completion OTP shown to WORKER, client enters it
 export const markWorkDone = async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
@@ -220,8 +218,7 @@ export const markWorkDone = async (req, res) => {
       return res.json({ message: "Work marked done. Client has 10 minutes to pay.", job });
     }
 
-    // ✅ Payment received — generate completion OTP
-    // Worker shows this OTP to client, client enters it to confirm job is done
+    
     const otp     = Math.floor(1000 + Math.random() * 9000).toString();
     const expires = new Date(Date.now() + 30 * 60 * 1000);
 
@@ -231,9 +228,7 @@ export const markWorkDone = async (req, res) => {
     job.paymentConfirmedAt   = new Date();
     await job.save();
 
-    // ✅ Do NOT send OTP to client via socket — worker shows it physically
-    // Client must ask worker "what's the code?" — prevents fraud
-    // Worker sees it on their screen in Jobs.jsx
+    
 
     res.json({
       message: "Payment confirmed! Show the completion code to your client.",
@@ -246,7 +241,7 @@ export const markWorkDone = async (req, res) => {
   }
 };
 
-// ── CLIENT ENTERS COMPLETION OTP to finalize job ─────────────
+
 export const verifyCompletionOtp = async (req, res) => {
   try {
     const { otp } = req.body;
@@ -273,7 +268,7 @@ export const verifyCompletionOtp = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-// ── SUBMIT FEEDBACK ───────────────────────────────────────────
+
 export const submitFeedback = async (req, res) => {
   try {
     const { rating, jobQuality, timeliness, communication, wouldRecommend, comment } = req.body;
@@ -324,7 +319,6 @@ export const submitFeedback = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-// ── GET JOBS ──────────────────────────────────────────────────
 export const getWorkerJobs = async (req, res) => {
   try {
     const jobs = await Job.find({ workerId: req.user._id })

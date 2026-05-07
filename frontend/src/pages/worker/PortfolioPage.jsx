@@ -79,6 +79,7 @@ const ALL_NUMBERS = {
   eight: 8,
   nine: 9,
   ten: 10,
+
   twenty: 20,
   thirty: 30,
   forty: 40,
@@ -87,12 +88,28 @@ const ALL_NUMBERS = {
   seventy: 70,
   eighty: 80,
   ninety: 90,
+
   hundred: 100,
-  thousand: 1000,
   "two hundred": 200,
+  "three hundred": 300,
+  "four hundred": 400,
   "five hundred": 500,
+  "six hundred": 600,
+  "seven hundred": 700,
+  "eight hundred": 800,
+  "nine hundred": 900,
+
+  thousand: 1000,
   "two thousand": 2000,
+  "three thousand": 3000,
+  "four thousand": 4000,
   "five thousand": 5000,
+  "six thousand": 6000,
+  "seven thousand": 7000,
+  "eight thousand": 8000,
+  "nine thousand": 9000,
+  "ten thousand": 10000,
+
   ondu: 1,
   eradu: 2,
   mooru: 3,
@@ -103,9 +120,38 @@ const ALL_NUMBERS = {
   entu: 8,
   ombattu: 9,
   hattu: 10,
-  saavira: 1000,
-  "aidu nooru": 500,
+
+  ippattu: 20,
+  muvvattu: 30,
+  nalvattu: 40,
+  aivattu: 50,
+  aravattu: 60,
+  eppattu: 70,
+  embattu: 80,
+  tombattu: 90,
+
+  nooru: 100,
   "eradu nooru": 200,
+  "mooru nooru": 300,
+  "naalku nooru": 400,
+  "aidu nooru": 500,
+  "aaru nooru": 600,
+  "yelu nooru": 700,
+  "entu nooru": 800,
+  "ombattu nooru": 900,
+
+  saavira: 1000,
+  "eradu saavira": 2000,
+  "mooru saavira": 3000,
+  "naalku saavira": 4000,
+  "aidu saavira": 5000,
+  "aaru saavira": 6000,
+  "yelu saavira": 7000,
+  "entu saavira": 8000,
+  "ombattu saavira": 9000,
+  "hattu saavira": 10000,
+
+  ek: 1,
   do: 2,
   teen: 3,
   chaar: 4,
@@ -115,50 +161,200 @@ const ALL_NUMBERS = {
   aath: 8,
   nau: 9,
   das: 10,
+
   bees: 20,
   tees: 30,
   chaalees: 40,
   pachaas: 50,
+  saath: 60,
   sattar: 70,
   assi: 80,
-  navve: 90,
+  nabbe: 90,
+
   sau: 100,
-  hazaar: 1000,
   "do sau": 200,
+  "teen sau": 300,
+  "chaar sau": 400,
   "paanch sau": 500,
+  "che sau": 600,
+  "saat sau": 700,
+  "aath sau": 800,
+  "nau sau": 900,
+
+  hazaar: 1000,
+  "do hazaar": 2000,
+  "teen hazaar": 3000,
+  "chaar hazaar": 4000,
+  "paanch hazaar": 5000,
+  "che hazaar": 6000,
+  "saat hazaar": 7000,
+  "aath hazaar": 8000,
+  "nau hazaar": 9000,
+  "das hazaar": 10000,
+
   okati: 1,
   rendu: 2,
   moodu: 3,
   naalugu: 4,
+  aidu_tel: 5,
+  aaru_tel: 6,
   edu: 7,
   enimidi: 8,
   tommidi: 9,
   padi: 10,
+
+  iravai: 20,
+  muppai: 30,
+  nalabai: 40,
+  yabai: 50,
+  aravai: 60,
+  debbai: 70,
+  enabai: 80,
+  tombai: 90,
+
+  vanda: 100,
+  "rendu vandalu": 200,
+  "moodu vandalu": 300,
+  "naalugu vandalu": 400,
+  "aidu vandalu": 500,
+  "aaru vandalu": 600,
+  "edu vandalu": 700,
+  "enimidi vandalu": 800,
+  "tommidi vandalu": 900,
+
   veyyi: 1000,
+  "rendu veyyilu": 2000,
+  "moodu veyyilu": 3000,
+  "naalugu veyyilu": 4000,
+  "aidu veyyilu": 5000,
+  "aaru veyyilu": 6000,
+  "edu veyyilu": 7000,
+  "enimidi veyyilu": 8000,
+  "tommidi veyyilu": 9000,
+  "padi vela": 10000,
+
   onnu: 1,
+  rendu_tm: 2,
   moonu: 3,
   naalu: 4,
   anju: 5,
+  aaru_tm: 6,
   ezhu: 7,
   ettu: 8,
   onbadu: 9,
   pathu: 10,
+
+  irubathu: 20,
+  mupathu: 30,
+  naapathu: 40,
+  aimbathu: 50,
+  arubathu: 60,
+  ezhubathu: 70,
+  enbathu: 80,
+  thonnooru: 90,
+
+  nooru_tm: 100,
+  irunooru: 200,
+  munnooru: 300,
+  naanooru: 400,
+  ainooru: 500,
+  arunooru: 600,
+  ezhunooru: 700,
+  ennnooru: 800,
+  thonnooru_tm: 900,
+
   aayiram: 1000,
+  irandaayiram: 2000,
+  moondraayiram: 3000,
+  naangaayiram: 4000,
+  aindaayiram: 5000,
+  aaraayiram: 6000,
+  ezhaayiram: 7000,
+  ettaayiram: 8000,
+  onbadhaayiram: 9000,
+  pathaayiram: 10000,
+
+  onnu_ml: 1,
   randu: 2,
+  moonu_ml: 3,
+  naalu_ml: 4,
   anchu: 5,
+  aaru_ml: 6,
+  ezhu_ml: 7,
+  ettu_ml: 8,
   onpathu: 9,
+  pathu_ml: 10,
+
+  irupathu: 20,
+  muppathu: 30,
+  nalpathu: 40,
+  ambathu: 50,
+  arupathu: 60,
+  ezhupathu: 70,
+  enpathu: 80,
+  thonnooru_ml: 90,
+
+  nooru_ml: 100,
+  irunooru_ml: 200,
+  munnooru_ml: 300,
+  naanooru_ml: 400,
+  anjnooru: 500,
+  arunooru_ml: 600,
+  ezhunooru_ml: 700,
+  ennnooru_ml: 800,
+  thollayiram: 900,
+
+  ayiram: 1000,
+  randayiram: 2000,
+  moonayiram: 3000,
+  naalayiram: 4000,
+  anchayiram: 5000,
+  aarayiram: 6000,
+  ezhayiram: 7000,
+  ettayiram: 8000,
+  onpathayiram: 9000,
+  pathinayiram: 10000,
+
   ek_mr: 1,
   don: 2,
+  teen_mr: 3,
+  chaar_mr: 4,
   paach: 5,
   saha: 6,
+  saat_mr: 7,
+  aath_mr: 8,
+  nau_mr: 9,
   daha: 10,
+
   vis: 20,
+  tees_mr: 30,
   chaalis: 40,
   pannaas: 50,
+  saath_mr: 60,
+  sattar_mr: 70,
   ainshi: 80,
+  नव्वद: 90,
+
   shambhar: 100,
   "don shambhar": 200,
+  "teen shambhar": 300,
+  "chaar shambhar": 400,
   "paach shambhar": 500,
+  "saha shambhar": 600,
+  "saat shambhar": 700,
+  "aath shambhar": 800,
+  "nau shambhar": 900,
+
+  hajar: 1000,
+  "don hajar": 2000,
+  "teen hajar": 3000,
+  "chaar hajar": 4000,
+  "paach hajar": 5000,
+  "saha hajar": 6000,
+  "saat hajar": 7000,
+  "aath hajar": 8000,
+  "nau hajar": 9000,
+  "daha hajar": 10000,
 };
 
 function parseIndianNumbers(text) {
@@ -233,9 +429,7 @@ export default function PortfolioPage() {
     priceMax: "",
   });
 
-  // ── Sync form from portfolio + user on load ──────────────────────────────
   useEffect(() => {
-    // Determine category: user registration → portfolio fallback
     const cat = normalizeCategory(user?.category || portfolio?.category || "");
 
     if (portfolio) {
@@ -267,7 +461,6 @@ export default function PortfolioPage() {
     }
   }, [portfolio, user]);
 
-  // ── Voice inputs ─────────────────────────────────────────────────────────
   const voiceAbout = useVoiceInput((english) => {
     setForm((p) => ({
       ...p,
@@ -297,10 +490,8 @@ export default function PortfolioPage() {
     if (nums?.length > 0) setForm((p) => ({ ...p, priceMax: nums[0] }));
   }, true);
 
-  // ── Derived ──────────────────────────────────────────────────────────────
   const catData = CATEGORY_DATA[form.category] || null;
 
-  // ── Validation ───────────────────────────────────────────────────────────
   const validate = () => {
     const e = {};
     if (!form.category) e.category = "Select your category";
@@ -312,7 +503,6 @@ export default function PortfolioPage() {
     return Object.keys(e).length === 0;
   };
 
-  // ── Save ─────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!validate()) return;
     setSaving(true);
@@ -344,7 +534,6 @@ export default function PortfolioPage() {
     }
   };
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
   const addSkill = () => {
     const s = newSkill.trim();
     if (s && !form.skills.includes(s))
@@ -368,7 +557,6 @@ export default function PortfolioPage() {
         : [...p.selectedWorkTypes, id],
     }));
 
-  // ── Style tokens ─────────────────────────────────────────────────────────
   const card = {
     background: "#1a1a1a",
     border: "1px solid rgba(255,255,255,0.07)",
@@ -455,7 +643,6 @@ export default function PortfolioPage() {
     );
   }
 
-  // ── Loading ───────────────────────────────────────────────────────────────
   if (loading)
     return (
       <div
@@ -465,7 +652,6 @@ export default function PortfolioPage() {
       </div>
     );
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div style={{ maxWidth: 700 }}>
       <style>{`
@@ -530,7 +716,6 @@ export default function PortfolioPage() {
         </div>
       )}
 
-      {/* Video preview */}
       {form.videoUrl && (
         <div style={card}>
           <label style={lb}>
@@ -584,7 +769,6 @@ export default function PortfolioPage() {
               <button
                 key={cat}
                 className="pp-cat"
-                // Allow clicking to switch (in case user wants to change)
                 onClick={() => {
                   setForm((p) => ({
                     ...p,
@@ -622,7 +806,6 @@ export default function PortfolioPage() {
         {errors.category && <div style={errSt}>{errors.category}</div>}
       </div>
 
-      {/* ── Work Types + Pricing — opens automatically when category is set ── */}
       {catData && (
         <div style={card}>
           <label style={lb}>Services You Offer &amp; Pricing (₹)</label>
@@ -831,7 +1014,7 @@ export default function PortfolioPage() {
       )}
 
       {/* ── About You ── */}
-      <div style={card}>
+      {/* <div style={card}>
         <div
           style={{
             display: "flex",
@@ -879,8 +1062,88 @@ export default function PortfolioPage() {
           rows={4}
           style={{ ...inp, resize: "vertical", lineHeight: 1.65 }}
         />
+      </div> */}
+      <div style={card}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 8,
+          }}
+        >
+          <div>
+            <label style={{ ...lb, marginBottom: 0 }}>About You</label>
+            <div
+              style={{
+                fontSize: 11,
+                color: "rgba(255,255,255,0.3)",
+                marginTop: 3,
+              }}
+            >
+              Speak or type a description of your skills and experience. used
+              here.
+            </div>
+          </div>
+          <VoiceBtn
+            active={voiceAbout.listening}
+            onStart={voiceAbout.start}
+            onStop={voiceAbout.stop}
+            label="Speak"
+          />
+        </div>
+        {voiceAbout.listening && (
+          <div
+            style={{
+              fontSize: 12,
+              color: "#f87171",
+              marginBottom: 8,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <div
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "#f87171",
+                animation: "pulse 1s infinite",
+              }}
+            />
+            Listening… speak in any language — auto-translated to English
+          </div>
+        )}
+        <textarea
+          className="pp-inp"
+          placeholder="Tell clients about yourself — your experience, what you specialise in, why they should hire you…"
+          value={form.description}
+          onChange={(e) => {
+            // ✅ Only update if worker is actually typing — never auto-fill from BLIP
+            setForm({ ...form, description: e.target.value });
+          }}
+          rows={4}
+          style={{ ...inp, resize: "vertical", lineHeight: 1.65 }}
+        />
+        {/* ✅ Clear button — in case BLIP text leaked in */}
+        {form.description && (
+          <button
+            onClick={() => setForm((p) => ({ ...p, description: "" }))}
+            style={{
+              marginTop: 6,
+              fontSize: 11,
+              color: "rgba(255,255,255,0.3)",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              fontFamily: "'Manrope',sans-serif",
+            }}
+          >
+            Clear ×
+          </button>
+        )}
       </div>
-
       {/* ── Skills ── */}
       <div style={card}>
         <div
@@ -1003,7 +1266,6 @@ export default function PortfolioPage() {
         </div>
       </div>
 
-      {/* ── Personal Details ── */}
       <div style={card}>
         <div
           style={{
@@ -1114,7 +1376,6 @@ export default function PortfolioPage() {
         </div>
       </div>
 
-      {/* ── Client Reviews ── */}
       {portfolio?.reviews?.length > 0 && (
         <div style={card}>
           <label style={{ ...lb, marginBottom: 16 }}>

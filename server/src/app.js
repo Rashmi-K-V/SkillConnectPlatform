@@ -1,4 +1,4 @@
-// src/app.js
+
 import express  from "express";
 import cors     from "cors";
 import dotenv   from "dotenv";
@@ -24,7 +24,7 @@ app.use("/api/workers",    workerRoutes);
 app.use("/api/video",      videoRoutes);
 app.use("/api/jobs",       jobRoutes);
 app.use("/api/portfolios", portfolioRoutes);
-app.use("/api/messages",   messageRoutes);   // GET/POST /api/messages/:jobId
+app.use("/api/messages",   messageRoutes);   
 
 app.get("/", (req, res) => res.send("API running ✓"));
 

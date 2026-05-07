@@ -154,7 +154,6 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
-// ── RESET PASSWORD — verify code and set new password ─────────
 export const resetPassword = async (req, res) => {
   try {
     const { token, password } = req.body; // token = the 6-digit code
@@ -192,7 +191,6 @@ export const resetPassword = async (req, res) => {
   }
 };
 
-// ── UPLOAD AVATAR ─────────────────────────────────────────────
 export const uploadAvatar = async (req, res) => {
   try {
     const url = req.file?.path || req.body.avatar;
