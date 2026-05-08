@@ -25,19 +25,15 @@ const portfolioSchema = new mongoose.Schema({
   email:             { type: String },
   contact:           { type: String },
   experience:        { type: String },
-
-  // Category and work types
-  category:          { type: String, enum: ["plumber","electrician","cook","cleaner","steam ironing"] },
-  selectedWorkTypes: { type: [String], default: [] }, // IDs of selected work types
-  priceMin:          { type: Number },                // worker's min price
-  priceMax:          { type: Number },                // worker's max price
-
-  // Legacy single pricing field kept for backward compat
+  // ✅ per-service prices set by worker
+  workTypePrices:    { type: Map, of: String, default: {} },
+  category:          { type: String, enum: ["plumber","electrician","cook","cleaner","ironing"] },
+  selectedWorkTypes: { type: [String], default: [] },
+  // ✅ auto-computed from workTypePrices on save
+  priceMin:          { type: Number },
+  priceMax:          { type: Number },
   pricing:           { type: String },
-
   languagesKnown:    { type: [String], default: [] },
-
-  // Auto-calculated from client reviews — worker cannot edit
   avgRating:         { type: Number, default: 0 },
   totalRatings:      { type: Number, default: 0 },
   reviews:           { type: [reviewSchema], default: [] },

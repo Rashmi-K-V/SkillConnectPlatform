@@ -1,4 +1,2896 @@
-// src/pages/worker/PortfolioPage.jsx
+// // src/pages/worker/PortfolioPage.jsx
+// import { useState, useEffect, useContext, useRef } from "react";
+// import api from "../../services/api.services.js";
+// import { useWorker } from "../../context/WorkerContext.jsx";
+// import { LanguageContext } from "../../context/LanguageContext.jsx";
+// import { CATEGORY_DATA, ALL_CATEGORIES } from "../../data/categoryData.js";
+
+// const ALL_LANGUAGES = [
+//   "English",
+//   "Hindi",
+//   "Kannada",
+//   "Tamil",
+//   "Telugu",
+//   "Malayalam",
+//   "Marathi",
+// ];
+
+// // "tailor" is stored as "steam_ironing" for display
+// const DISPLAY_CATEGORIES = ALL_CATEGORIES.map((c) =>
+//   c === "tailor" ? "steam_ironing" : c,
+// );
+
+// function normalizeCategory(cat) {
+//   if (!cat) return "";
+//   return cat === "tailor" ? "steam_ironing" : cat;
+// }
+
+// function isBlipDescription(text) {
+//   if (!text || text.trim().length < 15) return true;
+//   const blipPhrases = [
+//     "a person is",
+//     "a man is",
+//     "a woman is",
+//     "indian girl",
+//     "girl in shorts",
+//     "playing with a toy",
+//     "standing in the middle",
+//     "person using",
+//     "person holding",
+//     "someone is",
+//     "man is using",
+//     "woman is using",
+//     "striped shirt",
+//     "standing near",
+//     "wearing a",
+//     "looking at",
+//     "sitting on",
+//     "holding a",
+//     "using a phone",
+//     "a boy is",
+//     "a girl is",
+//     "painting a wall",
+//     "working on a circuit",
+//     "man in a yellow shirt",
+//     "man working on",
+//     "a person ironing",
+//     "person pressing clothes",
+//   ];
+//   return blipPhrases.some((b) => text.toLowerCase().includes(b));
+// }
+
+// async function translateToEnglish(text) {
+//   try {
+//     const res = await api.post("/auth/translate", { text, targetLang: "en" });
+//     return res.data.translated || text;
+//   } catch {
+//     return text;
+//   }
+// }
+
+// const ALL_NUMBERS = {
+//   one: 1,
+//   two: 2,
+//   three: 3,
+//   four: 4,
+//   five: 5,
+//   six: 6,
+//   seven: 7,
+//   eight: 8,
+//   nine: 9,
+//   ten: 10,
+
+//   twenty: 20,
+//   thirty: 30,
+//   forty: 40,
+//   fifty: 50,
+//   sixty: 60,
+//   seventy: 70,
+//   eighty: 80,
+//   ninety: 90,
+
+//   hundred: 100,
+//   "two hundred": 200,
+//   "three hundred": 300,
+//   "four hundred": 400,
+//   "five hundred": 500,
+//   "six hundred": 600,
+//   "seven hundred": 700,
+//   "eight hundred": 800,
+//   "nine hundred": 900,
+
+//   thousand: 1000,
+//   "two thousand": 2000,
+//   "three thousand": 3000,
+//   "four thousand": 4000,
+//   "five thousand": 5000,
+//   "six thousand": 6000,
+//   "seven thousand": 7000,
+//   "eight thousand": 8000,
+//   "nine thousand": 9000,
+//   "ten thousand": 10000,
+
+//   ondu: 1,
+//   eradu: 2,
+//   mooru: 3,
+//   naalku: 4,
+//   aidu: 5,
+//   aaru: 6,
+//   yelu: 7,
+//   entu: 8,
+//   ombattu: 9,
+//   hattu: 10,
+
+//   ippattu: 20,
+//   muvvattu: 30,
+//   nalvattu: 40,
+//   aivattu: 50,
+//   aravattu: 60,
+//   eppattu: 70,
+//   embattu: 80,
+//   tombattu: 90,
+
+//   nooru: 100,
+//   "eradu nooru": 200,
+//   "mooru nooru": 300,
+//   "naalku nooru": 400,
+//   "aidu nooru": 500,
+//   "aaru nooru": 600,
+//   "yelu nooru": 700,
+//   "entu nooru": 800,
+//   "ombattu nooru": 900,
+
+//   saavira: 1000,
+//   "eradu saavira": 2000,
+//   "mooru saavira": 3000,
+//   "naalku saavira": 4000,
+//   "aidu saavira": 5000,
+//   "aaru saavira": 6000,
+//   "yelu saavira": 7000,
+//   "entu saavira": 8000,
+//   "ombattu saavira": 9000,
+//   "hattu saavira": 10000,
+
+//   ek: 1,
+//   do: 2,
+//   teen: 3,
+//   chaar: 4,
+//   paanch: 5,
+//   che: 6,
+//   saat: 7,
+//   aath: 8,
+//   nau: 9,
+//   das: 10,
+
+//   bees: 20,
+//   tees: 30,
+//   chaalees: 40,
+//   pachaas: 50,
+//   saath: 60,
+//   sattar: 70,
+//   assi: 80,
+//   nabbe: 90,
+
+//   sau: 100,
+//   "do sau": 200,
+//   "teen sau": 300,
+//   "chaar sau": 400,
+//   "paanch sau": 500,
+//   "che sau": 600,
+//   "saat sau": 700,
+//   "aath sau": 800,
+//   "nau sau": 900,
+
+//   hazaar: 1000,
+//   "do hazaar": 2000,
+//   "teen hazaar": 3000,
+//   "chaar hazaar": 4000,
+//   "paanch hazaar": 5000,
+//   "che hazaar": 6000,
+//   "saat hazaar": 7000,
+//   "aath hazaar": 8000,
+//   "nau hazaar": 9000,
+//   "das hazaar": 10000,
+
+//   okati: 1,
+//   rendu: 2,
+//   moodu: 3,
+//   naalugu: 4,
+//   aidu_tel: 5,
+//   aaru_tel: 6,
+//   edu: 7,
+//   enimidi: 8,
+//   tommidi: 9,
+//   padi: 10,
+
+//   iravai: 20,
+//   muppai: 30,
+//   nalabai: 40,
+//   yabai: 50,
+//   aravai: 60,
+//   debbai: 70,
+//   enabai: 80,
+//   tombai: 90,
+
+//   vanda: 100,
+//   "rendu vandalu": 200,
+//   "moodu vandalu": 300,
+//   "naalugu vandalu": 400,
+//   "aidu vandalu": 500,
+//   "aaru vandalu": 600,
+//   "edu vandalu": 700,
+//   "enimidi vandalu": 800,
+//   "tommidi vandalu": 900,
+
+//   veyyi: 1000,
+//   "rendu veyyilu": 2000,
+//   "moodu veyyilu": 3000,
+//   "naalugu veyyilu": 4000,
+//   "aidu veyyilu": 5000,
+//   "aaru veyyilu": 6000,
+//   "edu veyyilu": 7000,
+//   "enimidi veyyilu": 8000,
+//   "tommidi veyyilu": 9000,
+//   "padi vela": 10000,
+
+//   onnu: 1,
+//   rendu_tm: 2,
+//   moonu: 3,
+//   naalu: 4,
+//   anju: 5,
+//   aaru_tm: 6,
+//   ezhu: 7,
+//   ettu: 8,
+//   onbadu: 9,
+//   pathu: 10,
+
+//   irubathu: 20,
+//   mupathu: 30,
+//   naapathu: 40,
+//   aimbathu: 50,
+//   arubathu: 60,
+//   ezhubathu: 70,
+//   enbathu: 80,
+//   thonnooru: 90,
+
+//   nooru_tm: 100,
+//   irunooru: 200,
+//   munnooru: 300,
+//   naanooru: 400,
+//   ainooru: 500,
+//   arunooru: 600,
+//   ezhunooru: 700,
+//   ennnooru: 800,
+//   thonnooru_tm: 900,
+
+//   aayiram: 1000,
+//   irandaayiram: 2000,
+//   moondraayiram: 3000,
+//   naangaayiram: 4000,
+//   aindaayiram: 5000,
+//   aaraayiram: 6000,
+//   ezhaayiram: 7000,
+//   ettaayiram: 8000,
+//   onbadhaayiram: 9000,
+//   pathaayiram: 10000,
+
+//   onnu_ml: 1,
+//   randu: 2,
+//   moonu_ml: 3,
+//   naalu_ml: 4,
+//   anchu: 5,
+//   aaru_ml: 6,
+//   ezhu_ml: 7,
+//   ettu_ml: 8,
+//   onpathu: 9,
+//   pathu_ml: 10,
+
+//   irupathu: 20,
+//   muppathu: 30,
+//   nalpathu: 40,
+//   ambathu: 50,
+//   arupathu: 60,
+//   ezhupathu: 70,
+//   enpathu: 80,
+//   thonnooru_ml: 90,
+
+//   nooru_ml: 100,
+//   irunooru_ml: 200,
+//   munnooru_ml: 300,
+//   naanooru_ml: 400,
+//   anjnooru: 500,
+//   arunooru_ml: 600,
+//   ezhunooru_ml: 700,
+//   ennnooru_ml: 800,
+//   thollayiram: 900,
+
+//   ayiram: 1000,
+//   randayiram: 2000,
+//   moonayiram: 3000,
+//   naalayiram: 4000,
+//   anchayiram: 5000,
+//   aarayiram: 6000,
+//   ezhayiram: 7000,
+//   ettayiram: 8000,
+//   onpathayiram: 9000,
+//   pathinayiram: 10000,
+
+//   ek_mr: 1,
+//   don: 2,
+//   teen_mr: 3,
+//   chaar_mr: 4,
+//   paach: 5,
+//   saha: 6,
+//   saat_mr: 7,
+//   aath_mr: 8,
+//   nau_mr: 9,
+//   daha: 10,
+
+//   vis: 20,
+//   tees_mr: 30,
+//   chaalis: 40,
+//   pannaas: 50,
+//   saath_mr: 60,
+//   sattar_mr: 70,
+//   ainshi: 80,
+//   नव्वद: 90,
+
+//   shambhar: 100,
+//   "don shambhar": 200,
+//   "teen shambhar": 300,
+//   "chaar shambhar": 400,
+//   "paach shambhar": 500,
+//   "saha shambhar": 600,
+//   "saat shambhar": 700,
+//   "aath shambhar": 800,
+//   "nau shambhar": 900,
+
+//   hajar: 1000,
+//   "don hajar": 2000,
+//   "teen hajar": 3000,
+//   "chaar hajar": 4000,
+//   "paach hajar": 5000,
+//   "saha hajar": 6000,
+//   "saat hajar": 7000,
+//   "aath hajar": 8000,
+//   "nau hajar": 9000,
+//   "daha hajar": 10000,
+// };
+
+// function parseIndianNumbers(text) {
+//   let result = text.toLowerCase();
+//   const entries = Object.entries(ALL_NUMBERS).sort(
+//     (a, b) => b[0].length - a[0].length,
+//   );
+//   entries.forEach(([word, num]) => {
+//     result = result.replace(
+//       new RegExp("\\b" + word + "\\b", "gi"),
+//       num.toString(),
+//     );
+//   });
+//   return result;
+// }
+
+// function useVoiceInput(onResult, parseNumbers) {
+//   const [listening, setListening] = useState(false);
+//   const recRef = useRef(null);
+//   const start = () => {
+//     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+//     if (!SR) {
+//       alert("Speech recognition requires Chrome browser.");
+//       return;
+//     }
+//     const rec = new SR();
+//     recRef.current = rec;
+//     rec.lang = "";
+//     rec.continuous = false;
+//     rec.interimResults = false;
+//     rec.onstart = () => setListening(true);
+//     rec.onend = () => setListening(false);
+//     rec.onerror = () => setListening(false);
+//     rec.onresult = async (e) => {
+//       const raw = e.results[0][0].transcript;
+//       const processed = parseNumbers ? parseIndianNumbers(raw) : raw;
+//       const english = await translateToEnglish(processed);
+//       onResult(english, raw);
+//     };
+//     rec.start();
+//   };
+//   const stop = () => {
+//     if (recRef.current) recRef.current.stop();
+//     setListening(false);
+//   };
+//   return { listening, start, stop };
+// }
+
+// export default function PortfolioPage() {
+//   const { portfolio, loading, refreshPortfolio, user } = useWorker();
+//   const { t } = useContext(LanguageContext);
+
+//   const [saving, setSaving] = useState(false);
+//   const [saved, setSaved] = useState(false);
+//   const [errors, setErrors] = useState({});
+//   const [newSkill, setNewSkill] = useState("");
+
+//   const [form, setForm] = useState({
+//     name: "",
+//     age: "",
+//     gender: "",
+//     email: "",
+//     contact: "",
+//     experience: "",
+//     description: "",
+//     skills: [],
+//     category: normalizeCategory(user?.category) || "",
+//     videoUrl: "",
+//     languagesKnown: [],
+//     selectedWorkTypes: [],
+//     priceMin: "",
+//     priceMax: "",
+//   });
+
+//   useEffect(() => {
+//     const cat = normalizeCategory(user?.category || portfolio?.category || "");
+
+//     if (portfolio) {
+//       setForm({
+//         name: user?.name || portfolio.name || "",
+//         age: portfolio.age || "",
+//         gender: portfolio.gender || "",
+//         email: user?.email || portfolio.email || "",
+//         contact: portfolio.contact || "",
+//         experience: portfolio.experience || "",
+//         description: isBlipDescription(portfolio.description)
+//           ? ""
+//           : portfolio.description || "",
+//         skills: portfolio.skills || [],
+//         category: cat,
+//         videoUrl: portfolio.videoUrl || "",
+//         languagesKnown: portfolio.languagesKnown || [],
+//         selectedWorkTypes: portfolio.selectedWorkTypes || [],
+//         priceMin: portfolio.priceMin || "",
+//         priceMax: portfolio.priceMax || "",
+//       });
+//     } else if (user) {
+//       setForm((p) => ({
+//         ...p,
+//         name: user.name || "",
+//         email: user.email || "",
+//         category: cat,
+//       }));
+//     }
+//   }, [portfolio, user]);
+
+//   const voiceAbout = useVoiceInput((english) => {
+//     setForm((p) => ({
+//       ...p,
+//       description: p.description ? p.description + " " + english : english,
+//     }));
+//   }, false);
+
+//   const voiceSkill = useVoiceInput((english) => {
+//     const words = english.split(/[,،、]/);
+//     setForm((p) => {
+//       const newSkills = [...p.skills];
+//       words.forEach((w) => {
+//         const s = w.trim();
+//         if (s && s.length > 1 && !newSkills.includes(s)) newSkills.push(s);
+//       });
+//       return { ...p, skills: newSkills };
+//     });
+//   }, false);
+
+//   const voicePriceMin = useVoiceInput((english) => {
+//     const nums = english.match(/\d+/g);
+//     if (nums?.length > 0) setForm((p) => ({ ...p, priceMin: nums[0] }));
+//   }, true);
+
+//   const voicePriceMax = useVoiceInput((english) => {
+//     const nums = english.match(/\d+/g);
+//     if (nums?.length > 0) setForm((p) => ({ ...p, priceMax: nums[0] }));
+//   }, true);
+
+//   const catData = CATEGORY_DATA[form.category] || null;
+
+//   const validate = () => {
+//     const e = {};
+//     if (!form.category) e.category = "Select your category";
+//     if (!form.name?.trim()) e.name = "Full name required";
+//     if (!form.contact?.trim()) e.contact = "Contact number required";
+//     if (!form.experience?.trim()) e.experience = "Experience required";
+//     if (form.skills.length === 0) e.skills = "Add at least one skill";
+//     setErrors(e);
+//     return Object.keys(e).length === 0;
+//   };
+
+//   const handleSave = async () => {
+//     if (!validate()) return;
+//     setSaving(true);
+//     setSaved(false);
+//     try {
+//       await api.post("/portfolios", {
+//         name: form.name,
+//         age: form.age ? Number(form.age) : undefined,
+//         gender: form.gender || undefined,
+//         email: form.email || undefined,
+//         contact: form.contact,
+//         experience: form.experience,
+//         description: form.description?.trim() || undefined,
+//         skills: form.skills,
+//         category: form.category || undefined,
+//         videoUrl: form.videoUrl || undefined,
+//         languagesKnown: form.languagesKnown,
+//         selectedWorkTypes: form.selectedWorkTypes,
+//         priceMin: form.priceMin ? Number(form.priceMin) : undefined,
+//         priceMax: form.priceMax ? Number(form.priceMax) : undefined,
+//       });
+//       await refreshPortfolio();
+//       setSaved(true);
+//       setTimeout(() => setSaved(false), 3000);
+//     } catch (err) {
+//       alert("Error saving: " + (err.response?.data?.message || err.message));
+//     } finally {
+//       setSaving(false);
+//     }
+//   };
+
+//   const addSkill = () => {
+//     const s = newSkill.trim();
+//     if (s && !form.skills.includes(s))
+//       setForm((p) => ({ ...p, skills: [...p.skills, s] }));
+//     setNewSkill("");
+//   };
+//   const removeSkill = (s) =>
+//     setForm((p) => ({ ...p, skills: p.skills.filter((x) => x !== s) }));
+//   const toggleLang = (lang) =>
+//     setForm((p) => ({
+//       ...p,
+//       languagesKnown: p.languagesKnown.includes(lang)
+//         ? p.languagesKnown.filter((l) => l !== lang)
+//         : [...p.languagesKnown, lang],
+//     }));
+//   const toggleWorkType = (id) =>
+//     setForm((p) => ({
+//       ...p,
+//       selectedWorkTypes: p.selectedWorkTypes.includes(id)
+//         ? p.selectedWorkTypes.filter((x) => x !== id)
+//         : [...p.selectedWorkTypes, id],
+//     }));
+
+//   const card = {
+//     background: "#1a1a1a",
+//     border: "1px solid rgba(255,255,255,0.07)",
+//     borderRadius: 16,
+//     padding: "22px 24px",
+//     marginBottom: 14,
+//   };
+//   const lb = {
+//     fontSize: 11,
+//     fontWeight: 600,
+//     color: "rgba(255,255,255,0.38)",
+//     textTransform: "uppercase",
+//     letterSpacing: "0.09em",
+//     display: "block",
+//     marginBottom: 7,
+//   };
+//   const inp = {
+//     width: "100%",
+//     background: "rgba(255,255,255,0.05)",
+//     border: "1px solid rgba(255,255,255,0.1)",
+//     borderRadius: 10,
+//     padding: "10px 14px",
+//     color: "#fff",
+//     fontSize: 14,
+//     fontFamily: "'Manrope',sans-serif",
+//     outline: "none",
+//     boxSizing: "border-box",
+//   };
+//   const errSt = { fontSize: 12, color: "#f87171", marginTop: 4 };
+//   const req = <span style={{ color: "#f87171", marginLeft: 3 }}>*</span>;
+
+//   function VoiceBtn({ active, onStart, onStop, label }) {
+//     return (
+//       <button
+//         onClick={active ? onStop : onStart}
+//         style={{
+//           display: "flex",
+//           alignItems: "center",
+//           gap: 6,
+//           padding: "5px 12px",
+//           borderRadius: 20,
+//           border:
+//             "1.5px solid " +
+//             (active ? "rgba(239,68,68,0.4)" : "rgba(255,255,255,0.12)"),
+//           background: active ? "rgba(239,68,68,0.1)" : "rgba(255,255,255,0.05)",
+//           color: active ? "#f87171" : "rgba(255,255,255,0.5)",
+//           fontFamily: "'Manrope',sans-serif",
+//           fontSize: 12,
+//           fontWeight: 600,
+//           cursor: "pointer",
+//           flexShrink: 0,
+//         }}
+//       >
+//         {active ? (
+//           <>
+//             <div
+//               style={{
+//                 width: 7,
+//                 height: 7,
+//                 borderRadius: "50%",
+//                 background: "#f87171",
+//                 animation: "pulse 1s infinite",
+//               }}
+//             />
+//             Stop
+//           </>
+//         ) : (
+//           <>
+//             <svg
+//               viewBox="0 0 24 24"
+//               fill="none"
+//               stroke="currentColor"
+//               strokeWidth="2"
+//               style={{ width: 12, height: 12 }}
+//             >
+//               <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+//               <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+//               <line x1="12" y1="19" x2="12" y2="23" />
+//             </svg>
+//             {label}
+//           </>
+//         )}
+//       </button>
+//     );
+//   }
+
+//   if (loading)
+//     return (
+//       <div
+//         style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, padding: 24 }}
+//       >
+//         Loading portfolio…
+//       </div>
+//     );
+
+//   return (
+//     <div style={{ maxWidth: 700 }}>
+//       <style>{`
+//         .pp-inp:focus{border-color:#c8f135!important;box-shadow:0 0 0 3px rgba(200,241,53,0.09)!important;}
+//         .pp-cat:hover,.pp-lang-pill:hover,.pp-work-pill:hover{border-color:rgba(255,255,255,0.3)!important;}
+//         .pp-err{border-color:#f87171!important;}
+//         input[type=number]::-webkit-outer-spin-button,
+//         input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+//         input[type=number]{-moz-appearance:textfield;}
+//         select option{background:#1e1e1e;color:#fff;}
+//         @keyframes spin{to{transform:rotate(360deg)}}
+//         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+//       `}</style>
+
+//       {/* Header */}
+//       <div style={{ marginBottom: 24 }}>
+//         <h2
+//           style={{
+//             fontFamily: "'Syne',sans-serif",
+//             fontSize: 22,
+//             fontWeight: 700,
+//             color: "#fff",
+//             margin: "0 0 5px",
+//           }}
+//         >
+//           {t("portfolio") || "Portfolio"}
+//         </h2>
+//         <p style={{ fontSize: 13, color: "rgba(255,255,255,0.32)" }}>
+//           Your public profile shown to clients. Fields marked * are required.
+//         </p>
+//       </div>
+
+//       {/* No portfolio banner */}
+//       {!portfolio && (
+//         <div
+//           style={{
+//             ...card,
+//             borderColor: "rgba(251,191,36,0.2)",
+//             background: "rgba(251,191,36,0.04)",
+//             marginBottom: 16,
+//           }}
+//         >
+//           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+//             <span style={{ fontSize: 18 }}>💡</span>
+//             <div>
+//               <div
+//                 style={{
+//                   fontSize: 13,
+//                   fontWeight: 600,
+//                   color: "#fbbf24",
+//                   marginBottom: 2,
+//                 }}
+//               >
+//                 No portfolio yet
+//               </div>
+//               <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.35)" }}>
+//                 Upload a video to auto-fill your profile, or fill manually
+//                 below.
+//               </div>
+//             </div>
+//           </div>
+//         </div>
+//       )}
+
+//       {form.videoUrl && (
+//         <div style={card}>
+//           <label style={lb}>
+//             Your Video{" "}
+//             <span
+//               style={{
+//                 color: "rgba(255,255,255,0.25)",
+//                 fontWeight: 400,
+//                 fontSize: 10,
+//                 textTransform: "none",
+//               }}
+//             >
+//               (visible to you only)
+//             </span>
+//           </label>
+//           <video
+//             src={form.videoUrl}
+//             controls
+//             style={{
+//               width: "100%",
+//               borderRadius: 10,
+//               maxHeight: 200,
+//               background: "#000",
+//             }}
+//           />
+//         </div>
+//       )}
+
+//       {/* ── Category — auto-selected from registration, read-only highlight ── */}
+//       <div style={card}>
+//         <label style={lb}>
+//           Worker Category {req}
+//           <span
+//             style={{
+//               color: "rgba(200,241,53,0.6)",
+//               fontWeight: 400,
+//               marginLeft: 8,
+//               fontSize: 10,
+//               textTransform: "none",
+//             }}
+//           >
+//             (set during registration)
+//           </span>
+//         </label>
+//         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+//           {DISPLAY_CATEGORIES.map((cat) => {
+//             const cd = CATEGORY_DATA[cat];
+//             if (!cd) return null;
+//             const isSelected = form.category === cat;
+//             return (
+//               <button
+//                 key={cat}
+//                 className="pp-cat"
+//                 onClick={() => {
+//                   setForm((p) => ({
+//                     ...p,
+//                     category: cat,
+//                     selectedWorkTypes: [],
+//                   }));
+//                   setErrors((e) => ({ ...e, category: undefined }));
+//                 }}
+//                 style={{
+//                   padding: "8px 18px",
+//                   borderRadius: 20,
+//                   border: isSelected
+//                     ? "1.5px solid #c8f135"
+//                     : "1.5px solid rgba(255,255,255,0.12)",
+//                   background: isSelected
+//                     ? "rgba(200,241,53,0.12)"
+//                     : "rgba(255,255,255,0.04)",
+//                   color: isSelected ? "#c8f135" : "rgba(255,255,255,0.5)",
+//                   fontFamily: "'Manrope',sans-serif",
+//                   fontSize: 13,
+//                   fontWeight: 600,
+//                   cursor: "pointer",
+//                   textTransform: "capitalize",
+//                   transition: "all 0.15s",
+//                   display: "flex",
+//                   alignItems: "center",
+//                   gap: 6,
+//                 }}
+//               >
+//                 {cd.icon} {cd.label}
+//               </button>
+//             );
+//           })}
+//         </div>
+//         {errors.category && <div style={errSt}>{errors.category}</div>}
+//       </div>
+
+//       {catData && (
+//         <div style={card}>
+//           <label style={lb}>Services You Offer &amp; Pricing (₹)</label>
+//           <div
+//             style={{
+//               fontSize: 12.5,
+//               color: "rgba(255,255,255,0.35)",
+//               marginBottom: 14,
+//             }}
+//           >
+//             Select the services you provide. Set your own price below.
+//           </div>
+//           <div
+//             style={{
+//               display: "grid",
+//               gridTemplateColumns: "1fr 1fr",
+//               gap: 8,
+//               marginBottom: 20,
+//             }}
+//           >
+//             {catData.workTypes.map((wt) => {
+//               const sel = form.selectedWorkTypes.includes(wt.id);
+//               return (
+//                 <button
+//                   key={wt.id}
+//                   className="pp-work-pill"
+//                   onClick={() => toggleWorkType(wt.id)}
+//                   style={{
+//                     padding: "10px 14px",
+//                     borderRadius: 12,
+//                     border: sel
+//                       ? "1.5px solid #c8f135"
+//                       : "1.5px solid rgba(255,255,255,0.1)",
+//                     background: sel
+//                       ? "rgba(200,241,53,0.08)"
+//                       : "rgba(255,255,255,0.03)",
+//                     cursor: "pointer",
+//                     textAlign: "left",
+//                     fontFamily: "'Manrope',sans-serif",
+//                     transition: "all 0.15s",
+//                   }}
+//                 >
+//                   <div
+//                     style={{
+//                       fontSize: 13,
+//                       fontWeight: 600,
+//                       color: sel ? "#c8f135" : "#fff",
+//                       marginBottom: 3,
+//                     }}
+//                   >
+//                     {wt.label}
+//                   </div>
+//                   <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>
+//                     Suggested: ₹{wt.minPrice.toLocaleString()} – ₹
+//                     {wt.maxPrice.toLocaleString()}
+//                   </div>
+//                 </button>
+//               );
+//             })}
+//           </div>
+
+//           {/* Price range */}
+//           <div
+//             style={{
+//               background: "rgba(255,255,255,0.03)",
+//               borderRadius: 12,
+//               padding: "16px",
+//               border: "1px solid rgba(255,255,255,0.07)",
+//             }}
+//           >
+//             <div
+//               style={{
+//                 fontSize: 12,
+//                 fontWeight: 600,
+//                 color: "rgba(255,255,255,0.5)",
+//                 marginBottom: 12,
+//               }}
+//             >
+//               Set your own price range — clients will see this on your profile
+//             </div>
+//             <div
+//               style={{
+//                 display: "grid",
+//                 gridTemplateColumns: "1fr 1fr",
+//                 gap: 12,
+//               }}
+//             >
+//               {/* Min */}
+//               <div>
+//                 <div
+//                   style={{
+//                     display: "flex",
+//                     alignItems: "center",
+//                     justifyContent: "space-between",
+//                     marginBottom: 6,
+//                   }}
+//                 >
+//                   <label style={lb}>Min Price (₹)</label>
+//                   <VoiceBtn
+//                     active={voicePriceMin.listening}
+//                     onStart={voicePriceMin.start}
+//                     onStop={voicePriceMin.stop}
+//                     label="Speak"
+//                   />
+//                 </div>
+//                 {voicePriceMin.listening && (
+//                   <div
+//                     style={{ fontSize: 11, color: "#f87171", marginBottom: 4 }}
+//                   >
+//                     🎤 Say e.g. "nooru" (100)
+//                   </div>
+//                 )}
+//                 <div style={{ position: "relative" }}>
+//                   <span
+//                     style={{
+//                       position: "absolute",
+//                       left: 13,
+//                       top: "50%",
+//                       transform: "translateY(-50%)",
+//                       fontSize: 13,
+//                       color: "rgba(255,255,255,0.4)",
+//                       pointerEvents: "none",
+//                     }}
+//                   >
+//                     ₹
+//                   </span>
+//                   <input
+//                     className="pp-inp"
+//                     type="number"
+//                     value={form.priceMin}
+//                     onChange={(e) =>
+//                       setForm((p) => ({ ...p, priceMin: e.target.value }))
+//                     }
+//                     placeholder="e.g. 200"
+//                     style={{ ...inp, paddingLeft: 28 }}
+//                   />
+//                 </div>
+//               </div>
+//               {/* Max */}
+//               <div>
+//                 <div
+//                   style={{
+//                     display: "flex",
+//                     alignItems: "center",
+//                     justifyContent: "space-between",
+//                     marginBottom: 6,
+//                   }}
+//                 >
+//                   <label style={lb}>Max Price (₹)</label>
+//                   <VoiceBtn
+//                     active={voicePriceMax.listening}
+//                     onStart={voicePriceMax.start}
+//                     onStop={voicePriceMax.stop}
+//                     label="Speak"
+//                   />
+//                 </div>
+//                 {voicePriceMax.listening && (
+//                   <div
+//                     style={{ fontSize: 11, color: "#f87171", marginBottom: 4 }}
+//                   >
+//                     🎤 Say e.g. "saavira" (1000)
+//                   </div>
+//                 )}
+//                 <div style={{ position: "relative" }}>
+//                   <span
+//                     style={{
+//                       position: "absolute",
+//                       left: 13,
+//                       top: "50%",
+//                       transform: "translateY(-50%)",
+//                       fontSize: 13,
+//                       color: "rgba(255,255,255,0.4)",
+//                       pointerEvents: "none",
+//                     }}
+//                   >
+//                     ₹
+//                   </span>
+//                   <input
+//                     className="pp-inp"
+//                     type="number"
+//                     value={form.priceMax}
+//                     onChange={(e) =>
+//                       setForm((p) => ({ ...p, priceMax: e.target.value }))
+//                     }
+//                     placeholder="e.g. 2000"
+//                     style={{ ...inp, paddingLeft: 28 }}
+//                   />
+//                 </div>
+//               </div>
+//             </div>
+//             {form.priceMin && form.priceMax && (
+//               <div
+//                 style={{
+//                   marginTop: 10,
+//                   fontSize: 12,
+//                   color: "#c8f135",
+//                   fontWeight: 600,
+//                 }}
+//               >
+//                 Clients will see: ₹{Number(form.priceMin).toLocaleString()} – ₹
+//                 {Number(form.priceMax).toLocaleString()}
+//               </div>
+//             )}
+//           </div>
+//         </div>
+//       )}
+
+//       {/* ── About You ── */}
+//       {/* <div style={card}>
+//         <div
+//           style={{
+//             display: "flex",
+//             alignItems: "center",
+//             justifyContent: "space-between",
+//             marginBottom: 8,
+//           }}
+//         >
+//           <label style={{ ...lb, marginBottom: 0 }}>About You</label>
+//           <VoiceBtn
+//             active={voiceAbout.listening}
+//             onStart={voiceAbout.start}
+//             onStop={voiceAbout.stop}
+//             label="Speak (any language → English)"
+//           />
+//         </div>
+//         {voiceAbout.listening && (
+//           <div
+//             style={{
+//               fontSize: 12,
+//               color: "#f87171",
+//               marginBottom: 8,
+//               display: "flex",
+//               alignItems: "center",
+//               gap: 6,
+//             }}
+//           >
+//             <div
+//               style={{
+//                 width: 8,
+//                 height: 8,
+//                 borderRadius: "50%",
+//                 background: "#f87171",
+//                 animation: "pulse 1s infinite",
+//               }}
+//             />
+//             Listening… speak in any language
+//           </div>
+//         )}
+//         <textarea
+//           className="pp-inp"
+//           placeholder="Describe your skills and experience…"
+//           value={form.description}
+//           onChange={(e) => setForm({ ...form, description: e.target.value })}
+//           rows={4}
+//           style={{ ...inp, resize: "vertical", lineHeight: 1.65 }}
+//         />
+//       </div> */}
+//       <div style={card}>
+//         <div
+//           style={{
+//             display: "flex",
+//             alignItems: "center",
+//             justifyContent: "space-between",
+//             marginBottom: 8,
+//           }}
+//         >
+//           <div>
+//             <label style={{ ...lb, marginBottom: 0 }}>About You</label>
+//             <div
+//               style={{
+//                 fontSize: 11,
+//                 color: "rgba(255,255,255,0.3)",
+//                 marginTop: 3,
+//               }}
+//             >
+//               Speak or type a description of your skills and experience. used
+//               here.
+//             </div>
+//           </div>
+//           <VoiceBtn
+//             active={voiceAbout.listening}
+//             onStart={voiceAbout.start}
+//             onStop={voiceAbout.stop}
+//             label="Speak"
+//           />
+//         </div>
+//         {voiceAbout.listening && (
+//           <div
+//             style={{
+//               fontSize: 12,
+//               color: "#f87171",
+//               marginBottom: 8,
+//               display: "flex",
+//               alignItems: "center",
+//               gap: 6,
+//             }}
+//           >
+//             <div
+//               style={{
+//                 width: 8,
+//                 height: 8,
+//                 borderRadius: "50%",
+//                 background: "#f87171",
+//                 animation: "pulse 1s infinite",
+//               }}
+//             />
+//             Listening… speak in any language — auto-translated to English
+//           </div>
+//         )}
+//         <textarea
+//           className="pp-inp"
+//           placeholder="Tell clients about yourself — your experience, what you specialise in, why they should hire you…"
+//           value={form.description}
+//           onChange={(e) => {
+//             // ✅ Only update if worker is actually typing — never auto-fill from BLIP
+//             setForm({ ...form, description: e.target.value });
+//           }}
+//           rows={4}
+//           style={{ ...inp, resize: "vertical", lineHeight: 1.65 }}
+//         />
+//         {/* ✅ Clear button — in case BLIP text leaked in */}
+//         {form.description && (
+//           <button
+//             onClick={() => setForm((p) => ({ ...p, description: "" }))}
+//             style={{
+//               marginTop: 6,
+//               fontSize: 11,
+//               color: "rgba(255,255,255,0.3)",
+//               background: "none",
+//               border: "none",
+//               cursor: "pointer",
+//               fontFamily: "'Manrope',sans-serif",
+//             }}
+//           >
+//             Clear ×
+//           </button>
+//         )}
+//       </div>
+//       {/* ── Skills ── */}
+//       <div style={card}>
+//         <div
+//           style={{
+//             display: "flex",
+//             alignItems: "center",
+//             justifyContent: "space-between",
+//             marginBottom: 8,
+//           }}
+//         >
+//           <label style={{ ...lb, marginBottom: 0 }}>Skills {req}</label>
+//           <VoiceBtn
+//             active={voiceSkill.listening}
+//             onStart={voiceSkill.start}
+//             onStop={voiceSkill.stop}
+//             label="Say skill names"
+//           />
+//         </div>
+//         {voiceSkill.listening && (
+//           <div style={{ fontSize: 12, color: "#f87171", marginBottom: 8 }}>
+//             🎤 Say skill names separated by commas in any language
+//           </div>
+//         )}
+//         <div
+//           style={{
+//             display: "flex",
+//             flexWrap: "wrap",
+//             gap: 8,
+//             marginBottom: 10,
+//           }}
+//         >
+//           {form.skills.map((sk) => (
+//             <span
+//               key={sk}
+//               style={{
+//                 padding: "5px 12px",
+//                 background: "rgba(200,241,53,0.1)",
+//                 color: "#c8f135",
+//                 borderRadius: 20,
+//                 fontSize: 12,
+//                 fontWeight: 600,
+//                 border: "1px solid rgba(200,241,53,0.2)",
+//                 display: "flex",
+//                 alignItems: "center",
+//                 gap: 6,
+//               }}
+//             >
+//               {sk}
+//               <span
+//                 onClick={() => removeSkill(sk)}
+//                 style={{ cursor: "pointer", fontSize: 14, opacity: 0.6 }}
+//               >
+//                 ×
+//               </span>
+//             </span>
+//           ))}
+//         </div>
+//         <div style={{ display: "flex", gap: 8 }}>
+//           <input
+//             className={"pp-inp" + (errors.skills ? " pp-err" : "")}
+//             placeholder="Type a skill and press Enter…"
+//             value={newSkill}
+//             onChange={(e) => setNewSkill(e.target.value)}
+//             onKeyDown={(e) => {
+//               if (e.key === "Enter") addSkill();
+//             }}
+//             style={{ ...inp, flex: 1 }}
+//           />
+//           <button
+//             onClick={addSkill}
+//             style={{
+//               padding: "10px 18px",
+//               background: "rgba(255,255,255,0.08)",
+//               color: "#fff",
+//               border: "1px solid rgba(255,255,255,0.1)",
+//               borderRadius: 10,
+//               fontSize: 13,
+//               fontWeight: 600,
+//               cursor: "pointer",
+//             }}
+//           >
+//             + Add
+//           </button>
+//         </div>
+//         {errors.skills && <div style={errSt}>{errors.skills}</div>}
+//       </div>
+
+//       {/* ── Languages Known ── */}
+//       <div style={card}>
+//         <label style={lb}>Languages Known</label>
+//         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+//           {ALL_LANGUAGES.map((lang) => {
+//             const sel = form.languagesKnown.includes(lang);
+//             return (
+//               <button
+//                 key={lang}
+//                 className="pp-lang-pill"
+//                 onClick={() => toggleLang(lang)}
+//                 style={{
+//                   padding: "7px 16px",
+//                   borderRadius: 20,
+//                   border: sel
+//                     ? "1.5px solid #c8f135"
+//                     : "1.5px solid rgba(255,255,255,0.12)",
+//                   background: sel
+//                     ? "rgba(200,241,53,0.1)"
+//                     : "rgba(255,255,255,0.04)",
+//                   color: sel ? "#c8f135" : "rgba(255,255,255,0.45)",
+//                   fontFamily: "'Manrope',sans-serif",
+//                   fontSize: 13,
+//                   fontWeight: 600,
+//                   cursor: "pointer",
+//                   transition: "all 0.15s",
+//                 }}
+//               >
+//                 {lang}
+//               </button>
+//             );
+//           })}
+//         </div>
+//       </div>
+
+//       <div style={card}>
+//         <div
+//           style={{
+//             fontSize: 11,
+//             fontWeight: 700,
+//             color: "rgba(255,255,255,0.35)",
+//             textTransform: "uppercase",
+//             letterSpacing: "0.1em",
+//             marginBottom: 16,
+//           }}
+//         >
+//           Personal Details
+//         </div>
+//         <div
+//           style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}
+//         >
+//           <div>
+//             <label style={lb}>Full Name {req}</label>
+//             <input
+//               className={"pp-inp" + (errors.name ? " pp-err" : "")}
+//               value={form.name}
+//               onChange={(e) => {
+//                 setForm((p) => ({ ...p, name: e.target.value }));
+//                 setErrors((e2) => ({ ...e2, name: undefined }));
+//               }}
+//               style={inp}
+//               placeholder="Full name"
+//             />
+//             {errors.name && <div style={errSt}>{errors.name}</div>}
+//           </div>
+//           <div>
+//             <label style={lb}>Age</label>
+//             <input
+//               className="pp-inp"
+//               type="number"
+//               value={form.age}
+//               onChange={(e) => setForm((p) => ({ ...p, age: e.target.value }))}
+//               style={inp}
+//               placeholder="e.g. 30"
+//               min="18"
+//               max="80"
+//             />
+//           </div>
+//           <div>
+//             <label style={lb}>Email</label>
+//             <input
+//               className="pp-inp"
+//               type="email"
+//               value={form.email}
+//               readOnly
+//               style={{
+//                 ...inp,
+//                 background: "rgba(255,255,255,0.03)",
+//                 cursor: "not-allowed",
+//               }}
+//               placeholder="(from your account)"
+//             />
+//           </div>
+//           <div>
+//             <label style={lb}>Contact No. {req}</label>
+//             <input
+//               className={"pp-inp" + (errors.contact ? " pp-err" : "")}
+//               type="tel"
+//               value={form.contact}
+//               onChange={(e) => {
+//                 setForm((p) => ({ ...p, contact: e.target.value }));
+//                 setErrors((e2) => ({ ...e2, contact: undefined }));
+//               }}
+//               style={inp}
+//               placeholder="Phone number"
+//             />
+//             {errors.contact && <div style={errSt}>{errors.contact}</div>}
+//           </div>
+//           <div style={{ gridColumn: "1/-1" }}>
+//             <label style={lb}>Experience {req}</label>
+//             <input
+//               className={"pp-inp" + (errors.experience ? " pp-err" : "")}
+//               value={form.experience}
+//               onChange={(e) => {
+//                 setForm((p) => ({ ...p, experience: e.target.value }));
+//                 setErrors((e2) => ({ ...e2, experience: undefined }));
+//               }}
+//               style={inp}
+//               placeholder="e.g. 3 years"
+//             />
+//             {errors.experience && <div style={errSt}>{errors.experience}</div>}
+//           </div>
+//         </div>
+//         <div style={{ marginTop: 14 }}>
+//           <label style={lb}>Gender</label>
+//           <select
+//             className="pp-inp"
+//             value={form.gender}
+//             onChange={(e) => setForm((p) => ({ ...p, gender: e.target.value }))}
+//             style={{
+//               ...inp,
+//               cursor: "pointer",
+//               color: "#fff",
+//               background: "#1e1e1e",
+//               appearance: "auto",
+//             }}
+//           >
+//             <option value="">Select gender</option>
+//             <option value="Male">Male</option>
+//             <option value="Female">Female</option>
+//             <option value="Other">Other</option>
+//           </select>
+//         </div>
+//       </div>
+
+//       {portfolio?.reviews?.length > 0 && (
+//         <div style={card}>
+//           <label style={{ ...lb, marginBottom: 16 }}>
+//             Client Reviews ({portfolio.reviews.length})
+//           </label>
+//           {portfolio.reviews.map((r, i) => (
+//             <div
+//               key={i}
+//               style={{
+//                 padding: "14px",
+//                 background: "rgba(255,255,255,0.03)",
+//                 borderRadius: 12,
+//                 marginBottom: 10,
+//                 border: "1px solid rgba(255,255,255,0.06)",
+//               }}
+//             >
+//               <div
+//                 style={{
+//                   display: "flex",
+//                   alignItems: "center",
+//                   justifyContent: "space-between",
+//                   marginBottom: 6,
+//                 }}
+//               >
+//                 <span style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>
+//                   {r.clientName || "Client"}
+//                 </span>
+//                 <span style={{ color: "#fbbf24" }}>
+//                   {"★".repeat(r.rating)}
+//                   <span style={{ color: "rgba(255,255,255,0.15)" }}>
+//                     {"★".repeat(5 - r.rating)}
+//                   </span>
+//                 </span>
+//               </div>
+//               {r.comment && (
+//                 <p
+//                   style={{
+//                     fontSize: 13,
+//                     color: "rgba(255,255,255,0.45)",
+//                     lineHeight: 1.5,
+//                     margin: 0,
+//                   }}
+//                 >
+//                   {r.comment}
+//                 </p>
+//               )}
+//             </div>
+//           ))}
+//         </div>
+//       )}
+
+//       {/* ── Save ── */}
+//       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+//         <button
+//           onClick={handleSave}
+//           disabled={saving}
+//           style={{
+//             padding: "13px 32px",
+//             background: saving ? "rgba(200,241,53,0.45)" : "#c8f135",
+//             color: "#0d0d0d",
+//             border: "none",
+//             borderRadius: 11,
+//             fontSize: 14,
+//             fontWeight: 700,
+//             cursor: saving ? "not-allowed" : "pointer",
+//             fontFamily: "'Manrope',sans-serif",
+//             display: "flex",
+//             alignItems: "center",
+//             gap: 8,
+//           }}
+//         >
+//           {saving && (
+//             <div
+//               style={{
+//                 width: 14,
+//                 height: 14,
+//                 borderRadius: "50%",
+//                 border: "2px solid rgba(0,0,0,0.2)",
+//                 borderTopColor: "#0d0d0d",
+//                 animation: "spin 0.7s linear infinite",
+//               }}
+//             />
+//           )}
+//           {saving ? "Saving…" : t("save") || "Save Portfolio"}
+//         </button>
+//         {saved && (
+//           <div
+//             style={{
+//               display: "flex",
+//               alignItems: "center",
+//               gap: 6,
+//               fontSize: 13,
+//               fontWeight: 600,
+//               color: "#4ade80",
+//             }}
+//           >
+//             <svg
+//               viewBox="0 0 24 24"
+//               fill="none"
+//               stroke="currentColor"
+//               strokeWidth="2.5"
+//               style={{ width: 15, height: 15 }}
+//             >
+//               <polyline points="20 6 9 17 4 12" />
+//             </svg>
+//             Portfolio saved!
+//           </div>
+//         )}
+//       </div>
+//     </div>
+//   );
+// }
+
+// import { useState, useEffect, useContext, useRef } from "react";
+// import api from "../../services/api.services.js";
+// import { useWorker } from "../../context/WorkerContext.jsx";
+// import { LanguageContext } from "../../context/LanguageContext.jsx";
+// import { CATEGORY_DATA, ALL_CATEGORIES } from "../../data/categoryData.js";
+
+// const ALL_LANGUAGES = [
+//   "English",
+//   "Hindi",
+//   "Kannada",
+//   "Tamil",
+//   "Telugu",
+//   "Malayalam",
+//   "Marathi",
+// ];
+
+// function isBlipDescription(text) {
+//   if (!text || text.trim().length < 15) return true;
+//   const blipPhrases = [
+//     "a person is",
+//     "a man is",
+//     "a woman is",
+//     "indian girl",
+//     "girl in shorts",
+//     "playing with a toy",
+//     "standing in the middle",
+//     "person using",
+//     "person holding",
+//     "someone is",
+//     "man is using",
+//     "woman is using",
+//     "striped shirt",
+//     "standing near",
+//     "wearing a",
+//     "looking at",
+//     "sitting on",
+//     "holding a",
+//     "using a phone",
+//     "a boy is",
+//     "a girl is",
+//     "painting a wall",
+//     "working on a circuit",
+//     "man in a yellow shirt",
+//     "man working on",
+//     "a person ironing",
+//     "person pressing clothes",
+//     "a group of people",
+//     "cooking in a kitchen",
+//     "a man cooking",
+//     "fry a group",
+//     "a bed with",
+//     "sandpaper",
+//     "floral print",
+//     "floral pattern",
+//   ];
+//   return blipPhrases.some((b) => text.toLowerCase().includes(b));
+// }
+
+// async function translateToEnglish(text) {
+//   try {
+//     const res = await api.post("/auth/translate", { text, targetLang: "en" });
+//     return res.data.translated || text;
+//   } catch {
+//     return text;
+//   }
+// }
+
+// const NUMBER_WORDS = {
+//   "two hundred": 200,
+//   "three hundred": 300,
+//   "four hundred": 400,
+//   "five hundred": 500,
+//   "six hundred": 600,
+//   "seven hundred": 700,
+//   "eight hundred": 800,
+//   "nine hundred": 900,
+//   "two thousand": 2000,
+//   "three thousand": 3000,
+//   "four thousand": 4000,
+//   "five thousand": 5000,
+//   "six thousand": 6000,
+//   "seven thousand": 7000,
+//   "eight thousand": 8000,
+//   "nine thousand": 9000,
+//   "ten thousand": 10000,
+//   "eradu nooru": 200,
+//   "mooru nooru": 300,
+//   "aidu nooru": 500,
+//   "eradu saavira": 2000,
+//   "mooru saavira": 3000,
+//   "aidu saavira": 5000,
+//   "do sau": 200,
+//   "paanch sau": 500,
+//   "do hazaar": 2000,
+//   "paanch hazaar": 5000,
+//   hundred: 100,
+//   thousand: 1000,
+//   one: 1,
+//   two: 2,
+//   three: 3,
+//   four: 4,
+//   five: 5,
+//   six: 6,
+//   seven: 7,
+//   eight: 8,
+//   nine: 9,
+//   ten: 10,
+//   twenty: 20,
+//   thirty: 30,
+//   forty: 40,
+//   fifty: 50,
+//   sixty: 60,
+//   seventy: 70,
+//   eighty: 80,
+//   ninety: 90,
+//   ondu: 1,
+//   eradu: 2,
+//   mooru: 3,
+//   naalku: 4,
+//   aidu: 5,
+//   aaru: 6,
+//   yelu: 7,
+//   entu: 8,
+//   ombattu: 9,
+//   hattu: 10,
+//   nooru: 100,
+//   saavira: 1000,
+//   ek: 1,
+//   do: 2,
+//   teen: 3,
+//   chaar: 4,
+//   paanch: 5,
+//   saat: 7,
+//   aath: 8,
+//   nau: 9,
+//   das: 10,
+//   bees: 20,
+//   tees: 30,
+//   pachaas: 50,
+//   sau: 100,
+//   hazaar: 1000,
+//   onnu: 1,
+//   pathu: 10,
+//   aayiram: 1000,
+// };
+
+// function parseNumbers(text) {
+//   let r = text.toLowerCase();
+//   Object.entries(NUMBER_WORDS)
+//     .sort((a, b) => b[0].length - a[0].length)
+//     .forEach(([w, n]) => {
+//       r = r.replace(new RegExp("\\b" + w + "\\b", "gi"), n.toString());
+//     });
+//   return r;
+// }
+
+// function useVoiceInput(onResult, doParseNumbers) {
+//   const [listening, setListening] = useState(false);
+//   const recRef = useRef(null);
+//   const start = () => {
+//     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+//     if (!SR) {
+//       alert("Speech recognition requires Chrome.");
+//       return;
+//     }
+//     const rec = new SR();
+//     recRef.current = rec;
+//     rec.lang = "";
+//     rec.continuous = false;
+//     rec.interimResults = false;
+//     rec.onstart = () => setListening(true);
+//     rec.onend = () => setListening(false);
+//     rec.onerror = () => setListening(false);
+//     rec.onresult = async (e) => {
+//       const raw = e.results[0][0].transcript;
+//       const processed = doParseNumbers ? parseNumbers(raw) : raw;
+//       const english = await translateToEnglish(processed);
+//       onResult(english, raw);
+//     };
+//     rec.start();
+//   };
+//   const stop = () => {
+//     recRef.current?.stop();
+//     setListening(false);
+//   };
+//   return { listening, start, stop };
+// }
+
+// export default function PortfolioPage() {
+//   const { portfolio, loading, refreshPortfolio, user } = useWorker();
+//   const { t } = useContext(LanguageContext);
+
+//   const [saving, setSaving] = useState(false);
+//   const [saved, setSaved] = useState(false);
+//   const [errors, setErrors] = useState({});
+//   const [newSkill, setNewSkill] = useState("");
+//   const [editPrices, setEditPrices] = useState(false); // ✅ toggle edit mode for prices
+
+//   // ✅ per-service prices: { serviceId: "price string" }
+//   const [workTypePrices, setWorkTypePrices] = useState({});
+
+//   const [form, setForm] = useState({
+//     name: "",
+//     age: "",
+//     gender: "",
+//     email: "",
+//     contact: "",
+//     experience: "",
+//     description: "",
+//     skills: [],
+//     category: "",
+//     videoUrl: "",
+//     languagesKnown: [],
+//     selectedWorkTypes: [],
+//   });
+
+//   // ✅ Load portfolio into form — correctly handles Map from MongoDB
+//   useEffect(() => {
+//     const cat = user?.category || portfolio?.category || "";
+
+//     if (portfolio) {
+//       setForm({
+//         name: user?.name || portfolio.name || "",
+//         age: portfolio.age || "",
+//         gender: portfolio.gender || "",
+//         email: user?.email || portfolio.email || "",
+//         contact: portfolio.contact || "",
+//         experience: portfolio.experience || "",
+//         // ✅ Never show BLIP garbage in About You
+//         description: isBlipDescription(portfolio.description)
+//           ? ""
+//           : portfolio.description || "",
+//         skills: portfolio.skills || [],
+//         category: cat,
+//         videoUrl: portfolio.videoUrl || "",
+//         languagesKnown: portfolio.languagesKnown || [],
+//         selectedWorkTypes: portfolio.selectedWorkTypes || [],
+//       });
+
+//       // ✅ Load per-service prices — MongoDB Map comes as plain object
+//       if (portfolio.workTypePrices) {
+//         // Handle both Map (toObject) and plain object
+//         const prices = {};
+//         if (portfolio.workTypePrices instanceof Map) {
+//           portfolio.workTypePrices.forEach((v, k) => {
+//             prices[k] = v;
+//           });
+//         } else if (typeof portfolio.workTypePrices === "object") {
+//           Object.assign(prices, portfolio.workTypePrices);
+//         }
+//         setWorkTypePrices(prices);
+//       }
+//     } else if (user) {
+//       setForm((p) => ({
+//         ...p,
+//         name: user.name || "",
+//         email: user.email || "",
+//         category: cat,
+//       }));
+//     }
+//   }, [portfolio, user]);
+
+//   // Voice
+//   const voiceAbout = useVoiceInput((english) => {
+//     setForm((p) => ({
+//       ...p,
+//       description: p.description ? p.description + " " + english : english,
+//     }));
+//   }, false);
+
+//   const voiceSkill = useVoiceInput((english) => {
+//     const words = english.split(/[,،、]/);
+//     setForm((p) => {
+//       const s = [...p.skills];
+//       words.forEach((w) => {
+//         const t = w.trim();
+//         if (t && t.length > 1 && !s.includes(t)) s.push(t);
+//       });
+//       return { ...p, skills: s };
+//     });
+//   }, false);
+
+//   const catData = CATEGORY_DATA[form.category] || null;
+
+//   // ✅ Auto-compute priceMin/priceMax from worker's prices for selected services
+//   const computedPrices = (() => {
+//     const vals = form.selectedWorkTypes
+//       .map((id) => Number(workTypePrices[id]))
+//       .filter((n) => n > 0);
+//     return {
+//       min: vals.length ? Math.min(...vals) : null,
+//       max: vals.length ? Math.max(...vals) : null,
+//     };
+//   })();
+
+//   const validate = () => {
+//     const e = {};
+//     if (!form.category) e.category = "Select your category";
+//     if (!form.name?.trim()) e.name = "Full name required";
+//     if (!form.contact?.trim()) e.contact = "Contact number required";
+//     if (!form.experience?.trim()) e.experience = "Experience required";
+//     if (form.skills.length === 0) e.skills = "Add at least one skill";
+//     setErrors(e);
+//     return Object.keys(e).length === 0;
+//   };
+
+//   const handleSave = async () => {
+//     if (!validate()) return;
+//     setSaving(true);
+//     setSaved(false);
+//     try {
+//       await api.post("/portfolios", {
+//         name: form.name,
+//         age: form.age ? Number(form.age) : undefined,
+//         gender: form.gender || undefined,
+//         email: form.email || undefined,
+//         contact: form.contact,
+//         experience: form.experience,
+//         // ✅ Only save if worker actually typed — never BLIP
+//         description:
+//           form.description?.trim() && !isBlipDescription(form.description)
+//             ? form.description.trim()
+//             : undefined,
+//         skills: form.skills,
+//         category: form.category || undefined,
+//         videoUrl: form.videoUrl || undefined,
+//         languagesKnown: form.languagesKnown,
+//         selectedWorkTypes: form.selectedWorkTypes,
+//         workTypePrices, // ✅ per-service prices
+//         priceMin: computedPrices.min || undefined, // ✅ auto-computed
+//         priceMax: computedPrices.max || undefined,
+//       });
+//       await refreshPortfolio();
+//       setSaved(true);
+//       setEditPrices(false);
+//       setTimeout(() => setSaved(false), 3000);
+//     } catch (err) {
+//       alert("Error saving: " + (err.response?.data?.message || err.message));
+//     } finally {
+//       setSaving(false);
+//     }
+//   };
+
+//   const addSkill = () => {
+//     const s = newSkill.trim();
+//     if (s && !form.skills.includes(s))
+//       setForm((p) => ({ ...p, skills: [...p.skills, s] }));
+//     setNewSkill("");
+//   };
+//   const removeSkill = (s) =>
+//     setForm((p) => ({ ...p, skills: p.skills.filter((x) => x !== s) }));
+//   const toggleLang = (l) =>
+//     setForm((p) => ({
+//       ...p,
+//       languagesKnown: p.languagesKnown.includes(l)
+//         ? p.languagesKnown.filter((x) => x !== l)
+//         : [...p.languagesKnown, l],
+//     }));
+//   const toggleWT = (id) =>
+//     setForm((p) => ({
+//       ...p,
+//       selectedWorkTypes: p.selectedWorkTypes.includes(id)
+//         ? p.selectedWorkTypes.filter((x) => x !== id)
+//         : [...p.selectedWorkTypes, id],
+//     }));
+
+//   const card = {
+//     background: "#1a1a1a",
+//     border: "1px solid rgba(255,255,255,0.07)",
+//     borderRadius: 16,
+//     padding: "22px 24px",
+//     marginBottom: 14,
+//   };
+//   const lb = {
+//     fontSize: 11,
+//     fontWeight: 600,
+//     color: "rgba(255,255,255,0.38)",
+//     textTransform: "uppercase",
+//     letterSpacing: "0.09em",
+//     display: "block",
+//     marginBottom: 7,
+//   };
+//   const inp = {
+//     width: "100%",
+//     background: "rgba(255,255,255,0.05)",
+//     border: "1px solid rgba(255,255,255,0.1)",
+//     borderRadius: 10,
+//     padding: "10px 14px",
+//     color: "#fff",
+//     fontSize: 14,
+//     fontFamily: "'Manrope',sans-serif",
+//     outline: "none",
+//     boxSizing: "border-box",
+//   };
+//   const errSt = { fontSize: 12, color: "#f87171", marginTop: 4 };
+//   const req = <span style={{ color: "#f87171", marginLeft: 3 }}>*</span>;
+
+//   function VoiceBtn({ active, onStart, onStop, label }) {
+//     return (
+//       <button
+//         onClick={active ? onStop : onStart}
+//         style={{
+//           display: "flex",
+//           alignItems: "center",
+//           gap: 6,
+//           padding: "5px 12px",
+//           borderRadius: 20,
+//           border:
+//             "1.5px solid " +
+//             (active ? "rgba(239,68,68,0.4)" : "rgba(255,255,255,0.12)"),
+//           background: active ? "rgba(239,68,68,0.1)" : "rgba(255,255,255,0.05)",
+//           color: active ? "#f87171" : "rgba(255,255,255,0.5)",
+//           fontFamily: "'Manrope',sans-serif",
+//           fontSize: 12,
+//           fontWeight: 600,
+//           cursor: "pointer",
+//           flexShrink: 0,
+//         }}
+//       >
+//         {active ? (
+//           <>
+//             <div
+//               style={{
+//                 width: 7,
+//                 height: 7,
+//                 borderRadius: "50%",
+//                 background: "#f87171",
+//                 animation: "pulse 1s infinite",
+//               }}
+//             />
+//             Stop
+//           </>
+//         ) : (
+//           <>
+//             <svg
+//               viewBox="0 0 24 24"
+//               fill="none"
+//               stroke="currentColor"
+//               strokeWidth="2"
+//               style={{ width: 12, height: 12 }}
+//             >
+//               <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+//               <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+//               <line x1="12" y1="19" x2="12" y2="23" />
+//             </svg>
+//             {label}
+//           </>
+//         )}
+//       </button>
+//     );
+//   }
+
+//   if (loading)
+//     return (
+//       <div
+//         style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, padding: 24 }}
+//       >
+//         Loading portfolio…
+//       </div>
+//     );
+
+//   return (
+//     <div style={{ maxWidth: 700 }}>
+//       <style>{`
+//         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Manrope:wght@400;500;600&display=swap');
+//         .pp-inp:focus{border-color:#c8f135!important;box-shadow:0 0 0 3px rgba(200,241,53,0.09)!important;}
+//         .pp-cat:hover,.pp-lang-pill:hover{border-color:rgba(255,255,255,0.3)!important;}
+//         .pp-err{border-color:#f87171!important;}
+//         input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+//         input[type=number]{-moz-appearance:textfield;}
+//         select option{background:#1e1e1e;color:#fff;}
+//         @keyframes spin{to{transform:rotate(360deg)}}
+//         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+//         .wt-row{transition:all 0.15s;}
+//         .wt-row:hover{border-color:rgba(255,255,255,0.2)!important;}
+//       `}</style>
+
+//       <div style={{ marginBottom: 24 }}>
+//         <h2
+//           style={{
+//             fontFamily: "'Syne',sans-serif",
+//             fontSize: 22,
+//             fontWeight: 700,
+//             color: "#fff",
+//             margin: "0 0 5px",
+//           }}
+//         >
+//           {t("portfolio") || "Portfolio"}
+//         </h2>
+//         <p style={{ fontSize: 13, color: "rgba(255,255,255,0.32)" }}>
+//           Your public profile shown to clients. Fields marked * are required.
+//         </p>
+//       </div>
+
+//       {!portfolio && (
+//         <div
+//           style={{
+//             ...card,
+//             borderColor: "rgba(251,191,36,0.2)",
+//             background: "rgba(251,191,36,0.04)",
+//             marginBottom: 16,
+//           }}
+//         >
+//           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+//             <span style={{ fontSize: 18 }}>💡</span>
+//             <div>
+//               <div
+//                 style={{
+//                   fontSize: 13,
+//                   fontWeight: 600,
+//                   color: "#fbbf24",
+//                   marginBottom: 2,
+//                 }}
+//               >
+//                 No portfolio yet
+//               </div>
+//               <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.35)" }}>
+//                 Upload a video to auto-fill your profile, or fill manually
+//                 below.
+//               </div>
+//             </div>
+//           </div>
+//         </div>
+//       )}
+
+//       {/* Video — worker only */}
+//       {form.videoUrl && (
+//         <div style={card}>
+//           <label style={lb}>
+//             Your Video{" "}
+//             <span
+//               style={{
+//                 color: "rgba(255,255,255,0.25)",
+//                 fontWeight: 400,
+//                 fontSize: 10,
+//                 textTransform: "none",
+//               }}
+//             >
+//               (visible to you only)
+//             </span>
+//           </label>
+//           <video
+//             src={form.videoUrl}
+//             controls
+//             style={{
+//               width: "100%",
+//               borderRadius: 10,
+//               maxHeight: 200,
+//               background: "#000",
+//             }}
+//           />
+//         </div>
+//       )}
+
+//       {/* Category */}
+//       <div style={card}>
+//         <label style={lb}>
+//           Worker Category {req}{" "}
+//           <span
+//             style={{
+//               color: "rgba(200,241,53,0.6)",
+//               fontWeight: 400,
+//               marginLeft: 8,
+//               fontSize: 10,
+//               textTransform: "none",
+//             }}
+//           >
+//             (set during registration)
+//           </span>
+//         </label>
+//         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+//           {ALL_CATEGORIES.map((cat) => {
+//             const cd = CATEGORY_DATA[cat];
+//             if (!cd) return null;
+//             const isSel = form.category === cat;
+//             return (
+//               <button
+//                 key={cat}
+//                 className="pp-cat"
+//                 onClick={() => {
+//                   setForm((p) => ({
+//                     ...p,
+//                     category: cat,
+//                     selectedWorkTypes: [],
+//                   }));
+//                   setErrors((e) => ({ ...e, category: undefined }));
+//                 }}
+//                 style={{
+//                   padding: "8px 18px",
+//                   borderRadius: 20,
+//                   border: isSel
+//                     ? "1.5px solid #c8f135"
+//                     : "1.5px solid rgba(255,255,255,0.12)",
+//                   background: isSel
+//                     ? "rgba(200,241,53,0.12)"
+//                     : "rgba(255,255,255,0.04)",
+//                   color: isSel ? "#c8f135" : "rgba(255,255,255,0.5)",
+//                   fontFamily: "'Manrope',sans-serif",
+//                   fontSize: 13,
+//                   fontWeight: 600,
+//                   cursor: "pointer",
+//                   textTransform: "capitalize",
+//                   transition: "all 0.15s",
+//                   display: "flex",
+//                   alignItems: "center",
+//                   gap: 6,
+//                 }}
+//               >
+//                 {cd.icon} {cd.label}
+//               </button>
+//             );
+//           })}
+//         </div>
+//         {errors.category && <div style={errSt}>{errors.category}</div>}
+//       </div>
+
+//       {/* ✅ Services with per-service pricing + Edit Prices button */}
+//       {catData && (
+//         <div style={card}>
+//           <div
+//             style={{
+//               display: "flex",
+//               alignItems: "center",
+//               justifyContent: "space-between",
+//               marginBottom: 8,
+//             }}
+//           >
+//             <div>
+//               <label style={{ ...lb, marginBottom: 0 }}>
+//                 Services &amp; Your Prices (₹)
+//               </label>
+//               <div
+//                 style={{
+//                   fontSize: 11,
+//                   color: "rgba(255,255,255,0.3)",
+//                   marginTop: 3,
+//                 }}
+//               >
+//                 Select services and set your price per item. Clients pay exactly
+//                 what you set.
+//               </div>
+//             </div>
+//             {/* ✅ Edit Prices toggle button */}
+//             <button
+//               onClick={() => setEditPrices((p) => !p)}
+//               style={{
+//                 padding: "6px 16px",
+//                 borderRadius: 20,
+//                 border: editPrices
+//                   ? "1.5px solid #c8f135"
+//                   : "1.5px solid rgba(255,255,255,0.15)",
+//                 background: editPrices
+//                   ? "rgba(200,241,53,0.12)"
+//                   : "rgba(255,255,255,0.05)",
+//                 color: editPrices ? "#c8f135" : "rgba(255,255,255,0.5)",
+//                 fontFamily: "'Manrope',sans-serif",
+//                 fontSize: 12,
+//                 fontWeight: 600,
+//                 cursor: "pointer",
+//                 display: "flex",
+//                 alignItems: "center",
+//                 gap: 6,
+//                 flexShrink: 0,
+//               }}
+//             >
+//               <svg
+//                 viewBox="0 0 24 24"
+//                 fill="none"
+//                 stroke="currentColor"
+//                 strokeWidth="2"
+//                 style={{ width: 12, height: 12 }}
+//               >
+//                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+//                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+//               </svg>
+//               {editPrices ? "Done Editing" : "Edit Prices"}
+//             </button>
+//           </div>
+
+//           <div
+//             style={{
+//               display: "flex",
+//               flexDirection: "column",
+//               gap: 8,
+//               marginBottom: 16,
+//             }}
+//           >
+//             {catData.workTypes.map((wt) => {
+//               const isSel = form.selectedWorkTypes.includes(wt.id);
+//               const priceVal = workTypePrices[wt.id] || "";
+//               const hasPrice = priceVal && Number(priceVal) > 0;
+
+//               return (
+//                 <div
+//                   key={wt.id}
+//                   className="wt-row"
+//                   style={{
+//                     padding: "12px 14px",
+//                     borderRadius: 12,
+//                     border: isSel
+//                       ? hasPrice
+//                         ? "1.5px solid rgba(200,241,53,0.5)"
+//                         : "1.5px solid rgba(251,191,36,0.4)"
+//                       : "1.5px solid rgba(255,255,255,0.1)",
+//                     background: isSel
+//                       ? "rgba(200,241,53,0.04)"
+//                       : "rgba(255,255,255,0.02)",
+//                   }}
+//                 >
+//                   <div
+//                     style={{ display: "flex", alignItems: "center", gap: 12 }}
+//                   >
+//                     {/* Checkbox toggle */}
+//                     <button
+//                       onClick={() => toggleWT(wt.id)}
+//                       style={{
+//                         width: 20,
+//                         height: 20,
+//                         borderRadius: 5,
+//                         border: isSel
+//                           ? "2px solid #c8f135"
+//                           : "2px solid rgba(255,255,255,0.2)",
+//                         background: isSel ? "#c8f135" : "transparent",
+//                         flexShrink: 0,
+//                         cursor: "pointer",
+//                         display: "flex",
+//                         alignItems: "center",
+//                         justifyContent: "center",
+//                         transition: "all 0.15s",
+//                         padding: 0,
+//                       }}
+//                     >
+//                       {isSel && (
+//                         <svg
+//                           viewBox="0 0 24 24"
+//                           fill="none"
+//                           stroke="#0d0d0d"
+//                           strokeWidth="3"
+//                           style={{ width: 11, height: 11 }}
+//                         >
+//                           <polyline points="20 6 9 17 4 12" />
+//                         </svg>
+//                       )}
+//                     </button>
+
+//                     {/* Label */}
+//                     <div style={{ flex: 1, minWidth: 0 }}>
+//                       <div
+//                         style={{
+//                           fontSize: 13.5,
+//                           fontWeight: 600,
+//                           color: isSel ? "#fff" : "rgba(255,255,255,0.5)",
+//                         }}
+//                       >
+//                         {wt.label}
+//                       </div>
+//                       <div
+//                         style={{
+//                           fontSize: 11,
+//                           color: "rgba(255,255,255,0.28)",
+//                           marginTop: 1,
+//                         }}
+//                       >
+//                         Market: ₹{wt.minPrice.toLocaleString()}–₹
+//                         {wt.maxPrice.toLocaleString()}
+//                       </div>
+//                     </div>
+
+//                     {/* ✅ Price display or input */}
+//                     {isSel &&
+//                       (editPrices ? (
+//                         // EDIT MODE: show input
+//                         <div
+//                           style={{
+//                             display: "flex",
+//                             alignItems: "center",
+//                             gap: 6,
+//                             flexShrink: 0,
+//                           }}
+//                         >
+//                           <div style={{ position: "relative" }}>
+//                             <span
+//                               style={{
+//                                 position: "absolute",
+//                                 left: 10,
+//                                 top: "50%",
+//                                 transform: "translateY(-50%)",
+//                                 fontSize: 13,
+//                                 color: "rgba(255,255,255,0.5)",
+//                                 pointerEvents: "none",
+//                               }}
+//                             >
+//                               ₹
+//                             </span>
+//                             <input
+//                               className="pp-inp"
+//                               type="number"
+//                               value={priceVal}
+//                               onChange={(e) =>
+//                                 setWorkTypePrices((p) => ({
+//                                   ...p,
+//                                   [wt.id]: e.target.value,
+//                                 }))
+//                               }
+//                               placeholder="Enter price"
+//                               autoFocus={!priceVal}
+//                               style={{
+//                                 ...inp,
+//                                 width: 140,
+//                                 paddingLeft: 26,
+//                                 fontSize: 14,
+//                                 fontWeight: 700,
+//                                 color: hasPrice
+//                                   ? "#c8f135"
+//                                   : "rgba(255,255,255,0.6)",
+//                                 border: hasPrice
+//                                   ? "1.5px solid rgba(200,241,53,0.5)"
+//                                   : "1.5px solid rgba(255,255,255,0.2)",
+//                               }}
+//                             />
+//                           </div>
+//                           {hasPrice && (
+//                             <span style={{ fontSize: 13, color: "#4ade80" }}>
+//                               ✓
+//                             </span>
+//                           )}
+//                         </div>
+//                       ) : (
+//                         // VIEW MODE: show price as badge
+//                         <div style={{ flexShrink: 0 }}>
+//                           {hasPrice ? (
+//                             <div
+//                               style={{
+//                                 padding: "5px 14px",
+//                                 background: "rgba(200,241,53,0.1)",
+//                                 border: "1px solid rgba(200,241,53,0.3)",
+//                                 borderRadius: 20,
+//                                 fontFamily: "'Syne',sans-serif",
+//                                 fontSize: 15,
+//                                 fontWeight: 800,
+//                                 color: "#c8f135",
+//                               }}
+//                             >
+//                               ₹{Number(priceVal).toLocaleString()}
+//                             </div>
+//                           ) : (
+//                             <button
+//                               onClick={() => setEditPrices(true)}
+//                               style={{
+//                                 padding: "5px 12px",
+//                                 background: "rgba(251,191,36,0.1)",
+//                                 border: "1px solid rgba(251,191,36,0.3)",
+//                                 borderRadius: 20,
+//                                 fontSize: 11.5,
+//                                 fontWeight: 600,
+//                                 color: "#fbbf24",
+//                                 cursor: "pointer",
+//                                 fontFamily: "'Manrope',sans-serif",
+//                               }}
+//                             >
+//                               ⚠ Set price
+//                             </button>
+//                           )}
+//                         </div>
+//                       ))}
+
+//                     {/* Unselected: show suggested */}
+//                     {!isSel && (
+//                       <div
+//                         style={{
+//                           fontSize: 11,
+//                           color: "rgba(255,255,255,0.2)",
+//                           flexShrink: 0,
+//                         }}
+//                       >
+//                         ₹{wt.minPrice.toLocaleString()}+
+//                       </div>
+//                     )}
+//                   </div>
+//                 </div>
+//               );
+//             })}
+//           </div>
+
+//           {/* ✅ Price summary — shows what clients will see */}
+//           {form.selectedWorkTypes.length > 0 && (
+//             <div
+//               style={{
+//                 padding: "14px 16px",
+//                 background: "rgba(200,241,53,0.04)",
+//                 border: "1px solid rgba(200,241,53,0.15)",
+//                 borderRadius: 12,
+//               }}
+//             >
+//               <div
+//                 style={{
+//                   fontSize: 11,
+//                   fontWeight: 600,
+//                   color: "rgba(255,255,255,0.35)",
+//                   textTransform: "uppercase",
+//                   letterSpacing: "0.08em",
+//                   marginBottom: 10,
+//                 }}
+//               >
+//                 What clients will see on your profile
+//               </div>
+//               {form.selectedWorkTypes.map((id) => {
+//                 const wt = catData.workTypes.find((w) => w.id === id);
+//                 const price = workTypePrices[id];
+//                 if (!wt) return null;
+//                 return (
+//                   <div
+//                     key={id}
+//                     style={{
+//                       display: "flex",
+//                       justifyContent: "space-between",
+//                       alignItems: "center",
+//                       marginBottom: 6,
+//                     }}
+//                   >
+//                     <span
+//                       style={{ fontSize: 13, color: "rgba(255,255,255,0.6)" }}
+//                     >
+//                       {wt.label}
+//                     </span>
+//                     {price && Number(price) > 0 ? (
+//                       <span
+//                         style={{
+//                           fontFamily: "'Syne',sans-serif",
+//                           fontSize: 14,
+//                           fontWeight: 700,
+//                           color: "#c8f135",
+//                         }}
+//                       >
+//                         ₹{Number(price).toLocaleString()}
+//                       </span>
+//                     ) : (
+//                       <span style={{ fontSize: 12, color: "#f87171" }}>
+//                         Price not set
+//                       </span>
+//                     )}
+//                   </div>
+//                 );
+//               })}
+//               {computedPrices.min && (
+//                 <div
+//                   style={{
+//                     marginTop: 8,
+//                     paddingTop: 8,
+//                     borderTop: "1px solid rgba(255,255,255,0.06)",
+//                     display: "flex",
+//                     justifyContent: "space-between",
+//                     alignItems: "center",
+//                   }}
+//                 >
+//                   <span
+//                     style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}
+//                   >
+//                     Profile range shown to clients
+//                   </span>
+//                   <span
+//                     style={{
+//                       fontFamily: "'Syne',sans-serif",
+//                       fontSize: 14,
+//                       fontWeight: 700,
+//                       color: "#c8f135",
+//                     }}
+//                   >
+//                     ₹{computedPrices.min.toLocaleString()} – ₹
+//                     {computedPrices.max.toLocaleString()}
+//                   </span>
+//                 </div>
+//               )}
+//             </div>
+//           )}
+//         </div>
+//       )}
+
+//       {/* About You */}
+//       <div style={card}>
+//         <div
+//           style={{
+//             display: "flex",
+//             alignItems: "center",
+//             justifyContent: "space-between",
+//             marginBottom: 8,
+//           }}
+//         >
+//           <div>
+//             <label style={{ ...lb, marginBottom: 0 }}>About You</label>
+//             <div
+//               style={{
+//                 fontSize: 11,
+//                 color: "rgba(255,255,255,0.3)",
+//                 marginTop: 3,
+//               }}
+//             >
+//               Speak or type about yourself — shown to clients. Video description
+//               is not used here.
+//             </div>
+//           </div>
+//           <VoiceBtn
+//             active={voiceAbout.listening}
+//             onStart={voiceAbout.start}
+//             onStop={voiceAbout.stop}
+//             label="Speak"
+//           />
+//         </div>
+//         {voiceAbout.listening && (
+//           <div
+//             style={{
+//               fontSize: 12,
+//               color: "#f87171",
+//               marginBottom: 8,
+//               display: "flex",
+//               alignItems: "center",
+//               gap: 6,
+//             }}
+//           >
+//             <div
+//               style={{
+//                 width: 8,
+//                 height: 8,
+//                 borderRadius: "50%",
+//                 background: "#f87171",
+//                 animation: "pulse 1s infinite",
+//               }}
+//             />
+//             Listening… auto-translated to English
+//           </div>
+//         )}
+//         <textarea
+//           className="pp-inp"
+//           placeholder="Tell clients about yourself — your experience, specialisation, why they should hire you…"
+//           value={form.description}
+//           onChange={(e) => setForm({ ...form, description: e.target.value })}
+//           rows={4}
+//           style={{ ...inp, resize: "vertical", lineHeight: 1.65 }}
+//         />
+//         {form.description && (
+//           <button
+//             onClick={() => setForm((p) => ({ ...p, description: "" }))}
+//             style={{
+//               marginTop: 6,
+//               fontSize: 11,
+//               color: "rgba(255,255,255,0.3)",
+//               background: "none",
+//               border: "none",
+//               cursor: "pointer",
+//               fontFamily: "'Manrope',sans-serif",
+//             }}
+//           >
+//             Clear ×
+//           </button>
+//         )}
+//       </div>
+
+//       {/* Skills */}
+//       <div style={card}>
+//         <div
+//           style={{
+//             display: "flex",
+//             alignItems: "center",
+//             justifyContent: "space-between",
+//             marginBottom: 8,
+//           }}
+//         >
+//           <label style={{ ...lb, marginBottom: 0 }}>Skills {req}</label>
+//           <VoiceBtn
+//             active={voiceSkill.listening}
+//             onStart={voiceSkill.start}
+//             onStop={voiceSkill.stop}
+//             label="Say skill names"
+//           />
+//         </div>
+//         {voiceSkill.listening && (
+//           <div style={{ fontSize: 12, color: "#f87171", marginBottom: 8 }}>
+//             🎤 Say skill names separated by commas
+//           </div>
+//         )}
+//         <div
+//           style={{
+//             display: "flex",
+//             flexWrap: "wrap",
+//             gap: 8,
+//             marginBottom: 10,
+//           }}
+//         >
+//           {form.skills.map((sk) => (
+//             <span
+//               key={sk}
+//               style={{
+//                 padding: "5px 12px",
+//                 background: "rgba(200,241,53,0.1)",
+//                 color: "#c8f135",
+//                 borderRadius: 20,
+//                 fontSize: 12,
+//                 fontWeight: 600,
+//                 border: "1px solid rgba(200,241,53,0.2)",
+//                 display: "flex",
+//                 alignItems: "center",
+//                 gap: 6,
+//               }}
+//             >
+//               {sk}
+//               <span
+//                 onClick={() => removeSkill(sk)}
+//                 style={{ cursor: "pointer", fontSize: 14, opacity: 0.6 }}
+//               >
+//                 ×
+//               </span>
+//             </span>
+//           ))}
+//         </div>
+//         <div style={{ display: "flex", gap: 8 }}>
+//           <input
+//             className={"pp-inp" + (errors.skills ? " pp-err" : "")}
+//             placeholder="Type a skill and press Enter…"
+//             value={newSkill}
+//             onChange={(e) => setNewSkill(e.target.value)}
+//             onKeyDown={(e) => e.key === "Enter" && addSkill()}
+//             style={{ ...inp, flex: 1 }}
+//           />
+//           <button
+//             onClick={addSkill}
+//             style={{
+//               padding: "10px 18px",
+//               background: "rgba(255,255,255,0.08)",
+//               color: "#fff",
+//               border: "1px solid rgba(255,255,255,0.1)",
+//               borderRadius: 10,
+//               fontSize: 13,
+//               fontWeight: 600,
+//               cursor: "pointer",
+//             }}
+//           >
+//             + Add
+//           </button>
+//         </div>
+//         {errors.skills && <div style={errSt}>{errors.skills}</div>}
+//       </div>
+
+//       {/* Languages */}
+//       <div style={card}>
+//         <label style={lb}>Languages Known</label>
+//         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+//           {ALL_LANGUAGES.map((lang) => {
+//             const sel = form.languagesKnown.includes(lang);
+//             return (
+//               <button
+//                 key={lang}
+//                 className="pp-lang-pill"
+//                 onClick={() => toggleLang(lang)}
+//                 style={{
+//                   padding: "7px 16px",
+//                   borderRadius: 20,
+//                   border: sel
+//                     ? "1.5px solid #c8f135"
+//                     : "1.5px solid rgba(255,255,255,0.12)",
+//                   background: sel
+//                     ? "rgba(200,241,53,0.1)"
+//                     : "rgba(255,255,255,0.04)",
+//                   color: sel ? "#c8f135" : "rgba(255,255,255,0.45)",
+//                   fontFamily: "'Manrope',sans-serif",
+//                   fontSize: 13,
+//                   fontWeight: 600,
+//                   cursor: "pointer",
+//                   transition: "all 0.15s",
+//                 }}
+//               >
+//                 {lang}
+//               </button>
+//             );
+//           })}
+//         </div>
+//       </div>
+
+//       {/* Personal Details */}
+//       <div style={card}>
+//         <div
+//           style={{
+//             fontSize: 11,
+//             fontWeight: 700,
+//             color: "rgba(255,255,255,0.35)",
+//             textTransform: "uppercase",
+//             letterSpacing: "0.1em",
+//             marginBottom: 16,
+//           }}
+//         >
+//           Personal Details
+//         </div>
+//         <div
+//           style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}
+//         >
+//           <div>
+//             <label style={lb}>Full Name {req}</label>
+//             <input
+//               className={"pp-inp" + (errors.name ? " pp-err" : "")}
+//               value={form.name}
+//               onChange={(e) => {
+//                 setForm((p) => ({ ...p, name: e.target.value }));
+//                 setErrors((e2) => ({ ...e2, name: undefined }));
+//               }}
+//               style={inp}
+//               placeholder="Full name"
+//             />
+//             {errors.name && <div style={errSt}>{errors.name}</div>}
+//           </div>
+//           <div>
+//             <label style={lb}>Age</label>
+//             <input
+//               className="pp-inp"
+//               type="number"
+//               value={form.age}
+//               onChange={(e) => setForm((p) => ({ ...p, age: e.target.value }))}
+//               style={inp}
+//               placeholder="e.g. 30"
+//               min="18"
+//               max="80"
+//             />
+//           </div>
+//           <div>
+//             <label style={lb}>Email</label>
+//             <input
+//               className="pp-inp"
+//               type="email"
+//               value={form.email}
+//               readOnly
+//               style={{
+//                 ...inp,
+//                 background: "rgba(255,255,255,0.03)",
+//                 cursor: "not-allowed",
+//               }}
+//               placeholder="(from your account)"
+//             />
+//           </div>
+//           <div>
+//             <label style={lb}>Contact No. {req}</label>
+//             <input
+//               className={"pp-inp" + (errors.contact ? " pp-err" : "")}
+//               type="tel"
+//               value={form.contact}
+//               onChange={(e) => {
+//                 setForm((p) => ({ ...p, contact: e.target.value }));
+//                 setErrors((e2) => ({ ...e2, contact: undefined }));
+//               }}
+//               style={inp}
+//               placeholder="Phone number"
+//             />
+//             {errors.contact && <div style={errSt}>{errors.contact}</div>}
+//           </div>
+//           <div style={{ gridColumn: "1/-1" }}>
+//             <label style={lb}>Experience {req}</label>
+//             <input
+//               className={"pp-inp" + (errors.experience ? " pp-err" : "")}
+//               value={form.experience}
+//               onChange={(e) => {
+//                 setForm((p) => ({ ...p, experience: e.target.value }));
+//                 setErrors((e2) => ({ ...e2, experience: undefined }));
+//               }}
+//               style={inp}
+//               placeholder="e.g. 3 years"
+//             />
+//             {errors.experience && <div style={errSt}>{errors.experience}</div>}
+//           </div>
+//         </div>
+//         <div style={{ marginTop: 14 }}>
+//           <label style={lb}>Gender</label>
+//           <select
+//             className="pp-inp"
+//             value={form.gender}
+//             onChange={(e) => setForm((p) => ({ ...p, gender: e.target.value }))}
+//             style={{
+//               ...inp,
+//               cursor: "pointer",
+//               color: "#fff",
+//               background: "#1e1e1e",
+//               appearance: "auto",
+//             }}
+//           >
+//             <option value="">Select gender</option>
+//             <option value="Male">Male</option>
+//             <option value="Female">Female</option>
+//             <option value="Other">Other</option>
+//           </select>
+//         </div>
+//       </div>
+
+//       {/* Reviews */}
+//       {portfolio?.reviews?.length > 0 && (
+//         <div style={card}>
+//           <label style={{ ...lb, marginBottom: 16 }}>
+//             Client Reviews ({portfolio.reviews.length})
+//           </label>
+//           {portfolio.reviews.map((r, i) => (
+//             <div
+//               key={i}
+//               style={{
+//                 padding: "14px",
+//                 background: "rgba(255,255,255,0.03)",
+//                 borderRadius: 12,
+//                 marginBottom: 10,
+//                 border: "1px solid rgba(255,255,255,0.06)",
+//               }}
+//             >
+//               <div
+//                 style={{
+//                   display: "flex",
+//                   alignItems: "center",
+//                   justifyContent: "space-between",
+//                   marginBottom: 6,
+//                 }}
+//               >
+//                 <span style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>
+//                   {r.clientName || "Client"}
+//                 </span>
+//                 <span style={{ color: "#fbbf24" }}>
+//                   {"★".repeat(r.rating)}
+//                   <span style={{ color: "rgba(255,255,255,0.15)" }}>
+//                     {"★".repeat(5 - r.rating)}
+//                   </span>
+//                 </span>
+//               </div>
+//               {r.comment && (
+//                 <p
+//                   style={{
+//                     fontSize: 13,
+//                     color: "rgba(255,255,255,0.45)",
+//                     lineHeight: 1.5,
+//                     margin: 0,
+//                   }}
+//                 >
+//                   {r.comment}
+//                 </p>
+//               )}
+//             </div>
+//           ))}
+//         </div>
+//       )}
+
+//       {/* Save */}
+//       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+//         <button
+//           onClick={handleSave}
+//           disabled={saving}
+//           style={{
+//             padding: "13px 32px",
+//             background: saving ? "rgba(200,241,53,0.45)" : "#c8f135",
+//             color: "#0d0d0d",
+//             border: "none",
+//             borderRadius: 11,
+//             fontSize: 14,
+//             fontWeight: 700,
+//             cursor: saving ? "not-allowed" : "pointer",
+//             fontFamily: "'Manrope',sans-serif",
+//             display: "flex",
+//             alignItems: "center",
+//             gap: 8,
+//           }}
+//         >
+//           {saving && (
+//             <div
+//               style={{
+//                 width: 14,
+//                 height: 14,
+//                 borderRadius: "50%",
+//                 border: "2px solid rgba(0,0,0,0.2)",
+//                 borderTopColor: "#0d0d0d",
+//                 animation: "spin 0.7s linear infinite",
+//               }}
+//             />
+//           )}
+//           {saving ? "Saving…" : t("save") || "Save Portfolio"}
+//         </button>
+//         {saved && (
+//           <div
+//             style={{
+//               display: "flex",
+//               alignItems: "center",
+//               gap: 6,
+//               fontSize: 13,
+//               fontWeight: 600,
+//               color: "#4ade80",
+//             }}
+//           >
+//             <svg
+//               viewBox="0 0 24 24"
+//               fill="none"
+//               stroke="currentColor"
+//               strokeWidth="2.5"
+//               style={{ width: 15, height: 15 }}
+//             >
+//               <polyline points="20 6 9 17 4 12" />
+//             </svg>
+//             Portfolio saved!
+//           </div>
+//         )}
+//       </div>
+//     </div>
+//   );
+// }
+
 import { useState, useEffect, useContext, useRef } from "react";
 import api from "../../services/api.services.js";
 import { useWorker } from "../../context/WorkerContext.jsx";
@@ -14,16 +2906,6 @@ const ALL_LANGUAGES = [
   "Malayalam",
   "Marathi",
 ];
-
-// "tailor" is stored as "steam_ironing" for display
-const DISPLAY_CATEGORIES = ALL_CATEGORIES.map((c) =>
-  c === "tailor" ? "steam_ironing" : c,
-);
-
-function normalizeCategory(cat) {
-  if (!cat) return "";
-  return cat === "tailor" ? "steam_ironing" : cat;
-}
 
 function isBlipDescription(text) {
   if (!text || text.trim().length < 15) return true;
@@ -55,6 +2937,14 @@ function isBlipDescription(text) {
     "man working on",
     "a person ironing",
     "person pressing clothes",
+    "a group of people",
+    "cooking in a kitchen",
+    "a man cooking",
+    "fry a group",
+    "a bed with",
+    "sandpaper",
+    "floral print",
+    "floral pattern",
   ];
   return blipPhrases.some((b) => text.toLowerCase().includes(b));
 }
@@ -68,7 +2958,36 @@ async function translateToEnglish(text) {
   }
 }
 
-const ALL_NUMBERS = {
+const NUMBER_WORDS = {
+  "two hundred": 200,
+  "three hundred": 300,
+  "four hundred": 400,
+  "five hundred": 500,
+  "six hundred": 600,
+  "seven hundred": 700,
+  "eight hundred": 800,
+  "nine hundred": 900,
+  "two thousand": 2000,
+  "three thousand": 3000,
+  "four thousand": 4000,
+  "five thousand": 5000,
+  "six thousand": 6000,
+  "seven thousand": 7000,
+  "eight thousand": 8000,
+  "nine thousand": 9000,
+  "ten thousand": 10000,
+  "eradu nooru": 200,
+  "mooru nooru": 300,
+  "aidu nooru": 500,
+  "eradu saavira": 2000,
+  "mooru saavira": 3000,
+  "aidu saavira": 5000,
+  "do sau": 200,
+  "paanch sau": 500,
+  "do hazaar": 2000,
+  "paanch hazaar": 5000,
+  hundred: 100,
+  thousand: 1000,
   one: 1,
   two: 2,
   three: 3,
@@ -79,7 +2998,6 @@ const ALL_NUMBERS = {
   eight: 8,
   nine: 9,
   ten: 10,
-
   twenty: 20,
   thirty: 30,
   forty: 40,
@@ -88,28 +3006,6 @@ const ALL_NUMBERS = {
   seventy: 70,
   eighty: 80,
   ninety: 90,
-
-  hundred: 100,
-  "two hundred": 200,
-  "three hundred": 300,
-  "four hundred": 400,
-  "five hundred": 500,
-  "six hundred": 600,
-  "seven hundred": 700,
-  "eight hundred": 800,
-  "nine hundred": 900,
-
-  thousand: 1000,
-  "two thousand": 2000,
-  "three thousand": 3000,
-  "four thousand": 4000,
-  "five thousand": 5000,
-  "six thousand": 6000,
-  "seven thousand": 7000,
-  "eight thousand": 8000,
-  "nine thousand": 9000,
-  "ten thousand": 10000,
-
   ondu: 1,
   eradu: 2,
   mooru: 3,
@@ -120,264 +3016,71 @@ const ALL_NUMBERS = {
   entu: 8,
   ombattu: 9,
   hattu: 10,
-
-  ippattu: 20,
-  muvvattu: 30,
-  nalvattu: 40,
-  aivattu: 50,
-  aravattu: 60,
-  eppattu: 70,
-  embattu: 80,
-  tombattu: 90,
-
   nooru: 100,
-  "eradu nooru": 200,
-  "mooru nooru": 300,
-  "naalku nooru": 400,
-  "aidu nooru": 500,
-  "aaru nooru": 600,
-  "yelu nooru": 700,
-  "entu nooru": 800,
-  "ombattu nooru": 900,
-
   saavira: 1000,
-  "eradu saavira": 2000,
-  "mooru saavira": 3000,
-  "naalku saavira": 4000,
-  "aidu saavira": 5000,
-  "aaru saavira": 6000,
-  "yelu saavira": 7000,
-  "entu saavira": 8000,
-  "ombattu saavira": 9000,
-  "hattu saavira": 10000,
-
   ek: 1,
   do: 2,
   teen: 3,
   chaar: 4,
   paanch: 5,
-  che: 6,
   saat: 7,
   aath: 8,
   nau: 9,
   das: 10,
-
   bees: 20,
   tees: 30,
-  chaalees: 40,
   pachaas: 50,
-  saath: 60,
-  sattar: 70,
-  assi: 80,
-  nabbe: 90,
-
   sau: 100,
-  "do sau": 200,
-  "teen sau": 300,
-  "chaar sau": 400,
-  "paanch sau": 500,
-  "che sau": 600,
-  "saat sau": 700,
-  "aath sau": 800,
-  "nau sau": 900,
-
   hazaar: 1000,
-  "do hazaar": 2000,
-  "teen hazaar": 3000,
-  "chaar hazaar": 4000,
-  "paanch hazaar": 5000,
-  "che hazaar": 6000,
-  "saat hazaar": 7000,
-  "aath hazaar": 8000,
-  "nau hazaar": 9000,
-  "das hazaar": 10000,
-
-  okati: 1,
-  rendu: 2,
-  moodu: 3,
-  naalugu: 4,
-  aidu_tel: 5,
-  aaru_tel: 6,
-  edu: 7,
-  enimidi: 8,
-  tommidi: 9,
-  padi: 10,
-
-  iravai: 20,
-  muppai: 30,
-  nalabai: 40,
-  yabai: 50,
-  aravai: 60,
-  debbai: 70,
-  enabai: 80,
-  tombai: 90,
-
-  vanda: 100,
-  "rendu vandalu": 200,
-  "moodu vandalu": 300,
-  "naalugu vandalu": 400,
-  "aidu vandalu": 500,
-  "aaru vandalu": 600,
-  "edu vandalu": 700,
-  "enimidi vandalu": 800,
-  "tommidi vandalu": 900,
-
-  veyyi: 1000,
-  "rendu veyyilu": 2000,
-  "moodu veyyilu": 3000,
-  "naalugu veyyilu": 4000,
-  "aidu veyyilu": 5000,
-  "aaru veyyilu": 6000,
-  "edu veyyilu": 7000,
-  "enimidi veyyilu": 8000,
-  "tommidi veyyilu": 9000,
-  "padi vela": 10000,
-
   onnu: 1,
-  rendu_tm: 2,
-  moonu: 3,
-  naalu: 4,
-  anju: 5,
-  aaru_tm: 6,
-  ezhu: 7,
-  ettu: 8,
-  onbadu: 9,
   pathu: 10,
-
-  irubathu: 20,
-  mupathu: 30,
-  naapathu: 40,
-  aimbathu: 50,
-  arubathu: 60,
-  ezhubathu: 70,
-  enbathu: 80,
-  thonnooru: 90,
-
-  nooru_tm: 100,
-  irunooru: 200,
-  munnooru: 300,
-  naanooru: 400,
-  ainooru: 500,
-  arunooru: 600,
-  ezhunooru: 700,
-  ennnooru: 800,
-  thonnooru_tm: 900,
-
   aayiram: 1000,
-  irandaayiram: 2000,
-  moondraayiram: 3000,
-  naangaayiram: 4000,
-  aindaayiram: 5000,
-  aaraayiram: 6000,
-  ezhaayiram: 7000,
-  ettaayiram: 8000,
-  onbadhaayiram: 9000,
-  pathaayiram: 10000,
-
-  onnu_ml: 1,
-  randu: 2,
-  moonu_ml: 3,
-  naalu_ml: 4,
-  anchu: 5,
-  aaru_ml: 6,
-  ezhu_ml: 7,
-  ettu_ml: 8,
-  onpathu: 9,
-  pathu_ml: 10,
-
-  irupathu: 20,
-  muppathu: 30,
-  nalpathu: 40,
-  ambathu: 50,
-  arupathu: 60,
-  ezhupathu: 70,
-  enpathu: 80,
-  thonnooru_ml: 90,
-
-  nooru_ml: 100,
-  irunooru_ml: 200,
-  munnooru_ml: 300,
-  naanooru_ml: 400,
-  anjnooru: 500,
-  arunooru_ml: 600,
-  ezhunooru_ml: 700,
-  ennnooru_ml: 800,
-  thollayiram: 900,
-
-  ayiram: 1000,
-  randayiram: 2000,
-  moonayiram: 3000,
-  naalayiram: 4000,
-  anchayiram: 5000,
-  aarayiram: 6000,
-  ezhayiram: 7000,
-  ettayiram: 8000,
-  onpathayiram: 9000,
-  pathinayiram: 10000,
-
-  ek_mr: 1,
-  don: 2,
-  teen_mr: 3,
-  chaar_mr: 4,
-  paach: 5,
-  saha: 6,
-  saat_mr: 7,
-  aath_mr: 8,
-  nau_mr: 9,
-  daha: 10,
-
-  vis: 20,
-  tees_mr: 30,
-  chaalis: 40,
-  pannaas: 50,
-  saath_mr: 60,
-  sattar_mr: 70,
-  ainshi: 80,
-  नव्वद: 90,
-
-  shambhar: 100,
-  "don shambhar": 200,
-  "teen shambhar": 300,
-  "chaar shambhar": 400,
-  "paach shambhar": 500,
-  "saha shambhar": 600,
-  "saat shambhar": 700,
-  "aath shambhar": 800,
-  "nau shambhar": 900,
-
-  hajar: 1000,
-  "don hajar": 2000,
-  "teen hajar": 3000,
-  "chaar hajar": 4000,
-  "paach hajar": 5000,
-  "saha hajar": 6000,
-  "saat hajar": 7000,
-  "aath hajar": 8000,
-  "nau hajar": 9000,
-  "daha hajar": 10000,
 };
 
-function parseIndianNumbers(text) {
-  let result = text.toLowerCase();
-  const entries = Object.entries(ALL_NUMBERS).sort(
-    (a, b) => b[0].length - a[0].length,
-  );
-  entries.forEach(([word, num]) => {
-    result = result.replace(
-      new RegExp("\\b" + word + "\\b", "gi"),
-      num.toString(),
-    );
-  });
-  return result;
+function parseNumbers(text) {
+  let r = text.toLowerCase();
+  Object.entries(NUMBER_WORDS)
+    .sort((a, b) => b[0].length - a[0].length)
+    .forEach(([w, n]) => {
+      r = r.replace(new RegExp("\\b" + w + "\\b", "gi"), n.toString());
+    });
+  return r;
 }
 
-function useVoiceInput(onResult, parseNumbers) {
+// ─── KEY FIX ────────────────────────────────────────────────────────────────
+// MongoDB Map comes over the wire as a plain object OR as an object with
+// numeric keys when JSON-serialised by Mongoose.  This helper normalises
+// every shape into a plain { [serviceId]: "priceString" } object.
+function normalisePrices(raw) {
+  if (!raw) return {};
+  // Already a JS Map (unlikely in HTTP responses, but safe to handle)
+  if (raw instanceof Map) {
+    const out = {};
+    raw.forEach((v, k) => {
+      out[k] = String(v);
+    });
+    return out;
+  }
+  // Plain object — covers both { serviceId: "price" } and the Mongoose
+  // Map-as-object shape { "0": [...], ... } that sometimes appears.
+  if (typeof raw === "object") {
+    const out = {};
+    Object.entries(raw).forEach(([k, v]) => {
+      if (v !== null && v !== undefined && v !== "") out[k] = String(v);
+    });
+    return out;
+  }
+  return {};
+}
+// ────────────────────────────────────────────────────────────────────────────
+
+function useVoiceInput(onResult, doParseNumbers) {
   const [listening, setListening] = useState(false);
   const recRef = useRef(null);
   const start = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
-      alert("Speech recognition requires Chrome browser.");
+      alert("Speech recognition requires Chrome.");
       return;
     }
     const rec = new SR();
@@ -390,14 +3093,14 @@ function useVoiceInput(onResult, parseNumbers) {
     rec.onerror = () => setListening(false);
     rec.onresult = async (e) => {
       const raw = e.results[0][0].transcript;
-      const processed = parseNumbers ? parseIndianNumbers(raw) : raw;
+      const processed = doParseNumbers ? parseNumbers(raw) : raw;
       const english = await translateToEnglish(processed);
       onResult(english, raw);
     };
     rec.start();
   };
   const stop = () => {
-    if (recRef.current) recRef.current.stop();
+    recRef.current?.stop();
     setListening(false);
   };
   return { listening, start, stop };
@@ -411,6 +3114,10 @@ export default function PortfolioPage() {
   const [saved, setSaved] = useState(false);
   const [errors, setErrors] = useState({});
   const [newSkill, setNewSkill] = useState("");
+  const [editPrices, setEditPrices] = useState(false);
+
+  // ── per-service prices: { serviceId: "price string" } ──────────────────
+  const [workTypePrices, setWorkTypePrices] = useState({});
 
   const [form, setForm] = useState({
     name: "",
@@ -421,18 +3128,17 @@ export default function PortfolioPage() {
     experience: "",
     description: "",
     skills: [],
-    category: normalizeCategory(user?.category) || "",
+    category: "",
     videoUrl: "",
     languagesKnown: [],
     selectedWorkTypes: [],
-    priceMin: "",
-    priceMax: "",
   });
 
+  // ── Load portfolio into form ────────────────────────────────────────────
   useEffect(() => {
-    const cat = normalizeCategory(user?.category || portfolio?.category || "");
-
     if (portfolio) {
+      const cat = user?.category || portfolio?.category || "";
+
       setForm({
         name: user?.name || portfolio.name || "",
         age: portfolio.age || "",
@@ -448,19 +3154,21 @@ export default function PortfolioPage() {
         videoUrl: portfolio.videoUrl || "",
         languagesKnown: portfolio.languagesKnown || [],
         selectedWorkTypes: portfolio.selectedWorkTypes || [],
-        priceMin: portfolio.priceMin || "",
-        priceMax: portfolio.priceMax || "",
       });
+
+      // ── FIXED: always normalise whatever shape the API returns ──────────
+      setWorkTypePrices(normalisePrices(portfolio.workTypePrices));
     } else if (user) {
       setForm((p) => ({
         ...p,
         name: user.name || "",
         email: user.email || "",
-        category: cat,
+        category: user?.category || "",
       }));
     }
   }, [portfolio, user]);
 
+  // Voice
   const voiceAbout = useVoiceInput((english) => {
     setForm((p) => ({
       ...p,
@@ -471,26 +3179,28 @@ export default function PortfolioPage() {
   const voiceSkill = useVoiceInput((english) => {
     const words = english.split(/[,،、]/);
     setForm((p) => {
-      const newSkills = [...p.skills];
+      const s = [...p.skills];
       words.forEach((w) => {
-        const s = w.trim();
-        if (s && s.length > 1 && !newSkills.includes(s)) newSkills.push(s);
+        const trimmed = w.trim();
+        if (trimmed && trimmed.length > 1 && !s.includes(trimmed))
+          s.push(trimmed);
       });
-      return { ...p, skills: newSkills };
+      return { ...p, skills: s };
     });
   }, false);
 
-  const voicePriceMin = useVoiceInput((english) => {
-    const nums = english.match(/\d+/g);
-    if (nums?.length > 0) setForm((p) => ({ ...p, priceMin: nums[0] }));
-  }, true);
-
-  const voicePriceMax = useVoiceInput((english) => {
-    const nums = english.match(/\d+/g);
-    if (nums?.length > 0) setForm((p) => ({ ...p, priceMax: nums[0] }));
-  }, true);
-
   const catData = CATEGORY_DATA[form.category] || null;
+
+  // Auto-compute priceMin / priceMax from per-service prices
+  const computedPrices = (() => {
+    const vals = form.selectedWorkTypes
+      .map((id) => Number(workTypePrices[id]))
+      .filter((n) => n > 0);
+    return {
+      min: vals.length ? Math.min(...vals) : null,
+      max: vals.length ? Math.max(...vals) : null,
+    };
+  })();
 
   const validate = () => {
     const e = {};
@@ -508,6 +3218,14 @@ export default function PortfolioPage() {
     setSaving(true);
     setSaved(false);
     try {
+      // ── FIXED: send workTypePrices as a clean plain object ─────────────
+      // This guarantees Mongoose stores it correctly as a Map<String,String>
+      const cleanPrices = {};
+      Object.entries(workTypePrices).forEach(([k, v]) => {
+        if (v !== "" && v !== null && v !== undefined)
+          cleanPrices[k] = String(v);
+      });
+
       await api.post("/portfolios", {
         name: form.name,
         age: form.age ? Number(form.age) : undefined,
@@ -515,17 +3233,23 @@ export default function PortfolioPage() {
         email: form.email || undefined,
         contact: form.contact,
         experience: form.experience,
-        description: form.description?.trim() || undefined,
+        description:
+          form.description?.trim() && !isBlipDescription(form.description)
+            ? form.description.trim()
+            : undefined,
         skills: form.skills,
         category: form.category || undefined,
         videoUrl: form.videoUrl || undefined,
         languagesKnown: form.languagesKnown,
         selectedWorkTypes: form.selectedWorkTypes,
-        priceMin: form.priceMin ? Number(form.priceMin) : undefined,
-        priceMax: form.priceMax ? Number(form.priceMax) : undefined,
+        workTypePrices: cleanPrices,
+        priceMin: computedPrices.min || undefined,
+        priceMax: computedPrices.max || undefined,
       });
+
       await refreshPortfolio();
       setSaved(true);
+      setEditPrices(false);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
       alert("Error saving: " + (err.response?.data?.message || err.message));
@@ -533,6 +3257,15 @@ export default function PortfolioPage() {
       setSaving(false);
     }
   };
+
+  // ── Portfolio controller (backend) fix hint ─────────────────────────────
+  // Make sure your POST /portfolios handler does:
+  //   portfolio.workTypePrices = new Map(Object.entries(req.body.workTypePrices || {}));
+  // And when returning the portfolio in GET /portfolios/me, convert the Map:
+  //   const doc = portfolio.toObject();
+  //   doc.workTypePrices = Object.fromEntries(portfolio.workTypePrices);
+  //   res.json(doc);
+  // ────────────────────────────────────────────────────────────────────────
 
   const addSkill = () => {
     const s = newSkill.trim();
@@ -542,14 +3275,14 @@ export default function PortfolioPage() {
   };
   const removeSkill = (s) =>
     setForm((p) => ({ ...p, skills: p.skills.filter((x) => x !== s) }));
-  const toggleLang = (lang) =>
+  const toggleLang = (l) =>
     setForm((p) => ({
       ...p,
-      languagesKnown: p.languagesKnown.includes(lang)
-        ? p.languagesKnown.filter((l) => l !== lang)
-        : [...p.languagesKnown, lang],
+      languagesKnown: p.languagesKnown.includes(l)
+        ? p.languagesKnown.filter((x) => x !== l)
+        : [...p.languagesKnown, l],
     }));
-  const toggleWorkType = (id) =>
+  const toggleWT = (id) =>
     setForm((p) => ({
       ...p,
       selectedWorkTypes: p.selectedWorkTypes.includes(id)
@@ -557,6 +3290,7 @@ export default function PortfolioPage() {
         : [...p.selectedWorkTypes, id],
     }));
 
+  // ── Styles ──────────────────────────────────────────────────────────────
   const card = {
     background: "#1a1a1a",
     border: "1px solid rgba(255,255,255,0.07)",
@@ -655,18 +3389,19 @@ export default function PortfolioPage() {
   return (
     <div style={{ maxWidth: 700 }}>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Manrope:wght@400;500;600&display=swap');
         .pp-inp:focus{border-color:#c8f135!important;box-shadow:0 0 0 3px rgba(200,241,53,0.09)!important;}
-        .pp-cat:hover,.pp-lang-pill:hover,.pp-work-pill:hover{border-color:rgba(255,255,255,0.3)!important;}
+        .pp-cat:hover,.pp-lang-pill:hover{border-color:rgba(255,255,255,0.3)!important;}
         .pp-err{border-color:#f87171!important;}
-        input[type=number]::-webkit-outer-spin-button,
-        input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+        input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
         input[type=number]{-moz-appearance:textfield;}
         select option{background:#1e1e1e;color:#fff;}
         @keyframes spin{to{transform:rotate(360deg)}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+        .wt-row{transition:all 0.15s;}
+        .wt-row:hover{border-color:rgba(255,255,255,0.2)!important;}
       `}</style>
 
-      {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <h2
           style={{
@@ -684,7 +3419,6 @@ export default function PortfolioPage() {
         </p>
       </div>
 
-      {/* No portfolio banner */}
       {!portfolio && (
         <div
           style={{
@@ -716,6 +3450,7 @@ export default function PortfolioPage() {
         </div>
       )}
 
+      {/* Video */}
       {form.videoUrl && (
         <div style={card}>
           <label style={lb}>
@@ -744,10 +3479,10 @@ export default function PortfolioPage() {
         </div>
       )}
 
-      {/* ── Category — auto-selected from registration, read-only highlight ── */}
+      {/* Category */}
       <div style={card}>
         <label style={lb}>
-          Worker Category {req}
+          Worker Category {req}{" "}
           <span
             style={{
               color: "rgba(200,241,53,0.6)",
@@ -761,10 +3496,10 @@ export default function PortfolioPage() {
           </span>
         </label>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {DISPLAY_CATEGORIES.map((cat) => {
+          {ALL_CATEGORIES.map((cat) => {
             const cd = CATEGORY_DATA[cat];
             if (!cd) return null;
-            const isSelected = form.category === cat;
+            const isSel = form.category === cat;
             return (
               <button
                 key={cat}
@@ -780,13 +3515,13 @@ export default function PortfolioPage() {
                 style={{
                   padding: "8px 18px",
                   borderRadius: 20,
-                  border: isSelected
+                  border: isSel
                     ? "1.5px solid #c8f135"
                     : "1.5px solid rgba(255,255,255,0.12)",
-                  background: isSelected
+                  background: isSel
                     ? "rgba(200,241,53,0.12)"
                     : "rgba(255,255,255,0.04)",
-                  color: isSelected ? "#c8f135" : "rgba(255,255,255,0.5)",
+                  color: isSel ? "#c8f135" : "rgba(255,255,255,0.5)",
                   fontFamily: "'Manrope',sans-serif",
                   fontSize: 13,
                   fontWeight: 600,
@@ -806,263 +3541,366 @@ export default function PortfolioPage() {
         {errors.category && <div style={errSt}>{errors.category}</div>}
       </div>
 
+      {/* Services & Prices */}
       {catData && (
         <div style={card}>
-          <label style={lb}>Services You Offer &amp; Pricing (₹)</label>
           <div
             style={{
-              fontSize: 12.5,
-              color: "rgba(255,255,255,0.35)",
-              marginBottom: 14,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 8,
             }}
           >
-            Select the services you provide. Set your own price below.
+            <div>
+              <label style={{ ...lb, marginBottom: 0 }}>
+                Services &amp; Your Prices (₹)
+              </label>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "rgba(255,255,255,0.3)",
+                  marginTop: 3,
+                }}
+              >
+                Select services and set your price per item. Clients pay exactly
+                what you set.
+              </div>
+            </div>
+            <button
+              onClick={() => setEditPrices((p) => !p)}
+              style={{
+                padding: "6px 16px",
+                borderRadius: 20,
+                border: editPrices
+                  ? "1.5px solid #c8f135"
+                  : "1.5px solid rgba(255,255,255,0.15)",
+                background: editPrices
+                  ? "rgba(200,241,53,0.12)"
+                  : "rgba(255,255,255,0.05)",
+                color: editPrices ? "#c8f135" : "rgba(255,255,255,0.5)",
+                fontFamily: "'Manrope',sans-serif",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                flexShrink: 0,
+              }}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                style={{ width: 12, height: 12 }}
+              >
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+              {editPrices ? "Done Editing" : "Edit Prices"}
+            </button>
           </div>
+
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
+              display: "flex",
+              flexDirection: "column",
               gap: 8,
-              marginBottom: 20,
+              marginBottom: 16,
             }}
           >
             {catData.workTypes.map((wt) => {
-              const sel = form.selectedWorkTypes.includes(wt.id);
+              const isSel = form.selectedWorkTypes.includes(wt.id);
+              // ── FIXED: always read from normalised state ─────────────────
+              const priceVal = workTypePrices[wt.id] ?? "";
+              const hasPrice = priceVal !== "" && Number(priceVal) > 0;
+
               return (
-                <button
+                <div
                   key={wt.id}
-                  className="pp-work-pill"
-                  onClick={() => toggleWorkType(wt.id)}
+                  className="wt-row"
                   style={{
-                    padding: "10px 14px",
+                    padding: "12px 14px",
                     borderRadius: 12,
-                    border: sel
-                      ? "1.5px solid #c8f135"
+                    border: isSel
+                      ? hasPrice
+                        ? "1.5px solid rgba(200,241,53,0.5)"
+                        : "1.5px solid rgba(251,191,36,0.4)"
                       : "1.5px solid rgba(255,255,255,0.1)",
-                    background: sel
-                      ? "rgba(200,241,53,0.08)"
-                      : "rgba(255,255,255,0.03)",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    fontFamily: "'Manrope',sans-serif",
-                    transition: "all 0.15s",
+                    background: isSel
+                      ? "rgba(200,241,53,0.04)"
+                      : "rgba(255,255,255,0.02)",
                   }}
                 >
                   <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: sel ? "#c8f135" : "#fff",
-                      marginBottom: 3,
-                    }}
+                    style={{ display: "flex", alignItems: "center", gap: 12 }}
                   >
-                    {wt.label}
+                    {/* Checkbox */}
+                    <button
+                      onClick={() => toggleWT(wt.id)}
+                      style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: 5,
+                        border: isSel
+                          ? "2px solid #c8f135"
+                          : "2px solid rgba(255,255,255,0.2)",
+                        background: isSel ? "#c8f135" : "transparent",
+                        flexShrink: 0,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        transition: "all 0.15s",
+                        padding: 0,
+                      }}
+                    >
+                      {isSel && (
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="#0d0d0d"
+                          strokeWidth="3"
+                          style={{ width: 11, height: 11 }}
+                        >
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                    </button>
+
+                    {/* Label */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: 13.5,
+                          fontWeight: 600,
+                          color: isSel ? "#fff" : "rgba(255,255,255,0.5)",
+                        }}
+                      >
+                        {wt.label}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "rgba(255,255,255,0.28)",
+                          marginTop: 1,
+                        }}
+                      >
+                        Market: ₹{wt.minPrice.toLocaleString()}–₹
+                        {wt.maxPrice.toLocaleString()}
+                      </div>
+                    </div>
+
+                    {/* Price — edit mode vs view mode */}
+                    {isSel &&
+                      (editPrices ? (
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            flexShrink: 0,
+                          }}
+                        >
+                          <div style={{ position: "relative" }}>
+                            <span
+                              style={{
+                                position: "absolute",
+                                left: 10,
+                                top: "50%",
+                                transform: "translateY(-50%)",
+                                fontSize: 13,
+                                color: "rgba(255,255,255,0.5)",
+                                pointerEvents: "none",
+                              }}
+                            >
+                              ₹
+                            </span>
+                            <input
+                              className="pp-inp"
+                              type="number"
+                              value={priceVal}
+                              onChange={(e) =>
+                                setWorkTypePrices((p) => ({
+                                  ...p,
+                                  [wt.id]: e.target.value,
+                                }))
+                              }
+                              placeholder="Enter price"
+                              style={{
+                                ...inp,
+                                width: 140,
+                                paddingLeft: 26,
+                                fontSize: 14,
+                                fontWeight: 700,
+                                color: hasPrice
+                                  ? "#c8f135"
+                                  : "rgba(255,255,255,0.6)",
+                                border: hasPrice
+                                  ? "1.5px solid rgba(200,241,53,0.5)"
+                                  : "1.5px solid rgba(255,255,255,0.2)",
+                              }}
+                            />
+                          </div>
+                          {hasPrice && (
+                            <span style={{ fontSize: 13, color: "#4ade80" }}>
+                              ✓
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{ flexShrink: 0 }}>
+                          {hasPrice ? (
+                            <div
+                              style={{
+                                padding: "5px 14px",
+                                background: "rgba(200,241,53,0.1)",
+                                border: "1px solid rgba(200,241,53,0.3)",
+                                borderRadius: 20,
+                                fontFamily: "'Syne',sans-serif",
+                                fontSize: 15,
+                                fontWeight: 800,
+                                color: "#c8f135",
+                              }}
+                            >
+                              ₹{Number(priceVal).toLocaleString()}
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setEditPrices(true)}
+                              style={{
+                                padding: "5px 12px",
+                                background: "rgba(251,191,36,0.1)",
+                                border: "1px solid rgba(251,191,36,0.3)",
+                                borderRadius: 20,
+                                fontSize: 11.5,
+                                fontWeight: 600,
+                                color: "#fbbf24",
+                                cursor: "pointer",
+                                fontFamily: "'Manrope',sans-serif",
+                              }}
+                            >
+                              ⚠ Set price
+                            </button>
+                          )}
+                        </div>
+                      ))}
+
+                    {/* Unselected suggestion */}
+                    {!isSel && (
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "rgba(255,255,255,0.2)",
+                          flexShrink: 0,
+                        }}
+                      >
+                        ₹{wt.minPrice.toLocaleString()}+
+                      </div>
+                    )}
                   </div>
-                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>
-                    Suggested: ₹{wt.minPrice.toLocaleString()} – ₹
-                    {wt.maxPrice.toLocaleString()}
-                  </div>
-                </button>
+                </div>
               );
             })}
           </div>
 
-          {/* Price range */}
-          <div
-            style={{
-              background: "rgba(255,255,255,0.03)",
-              borderRadius: 12,
-              padding: "16px",
-              border: "1px solid rgba(255,255,255,0.07)",
-            }}
-          >
+          {/* Price summary */}
+          {form.selectedWorkTypes.length > 0 && (
             <div
               style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: "rgba(255,255,255,0.5)",
-                marginBottom: 12,
+                padding: "14px 16px",
+                background: "rgba(200,241,53,0.04)",
+                border: "1px solid rgba(200,241,53,0.15)",
+                borderRadius: 12,
               }}
             >
-              Set your own price range — clients will see this on your profile
-            </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 12,
-              }}
-            >
-              {/* Min */}
-              <div>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: 6,
-                  }}
-                >
-                  <label style={lb}>Min Price (₹)</label>
-                  <VoiceBtn
-                    active={voicePriceMin.listening}
-                    onStart={voicePriceMin.start}
-                    onStop={voicePriceMin.stop}
-                    label="Speak"
-                  />
-                </div>
-                {voicePriceMin.listening && (
-                  <div
-                    style={{ fontSize: 11, color: "#f87171", marginBottom: 4 }}
-                  >
-                    🎤 Say e.g. "nooru" (100)
-                  </div>
-                )}
-                <div style={{ position: "relative" }}>
-                  <span
-                    style={{
-                      position: "absolute",
-                      left: 13,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      fontSize: 13,
-                      color: "rgba(255,255,255,0.4)",
-                      pointerEvents: "none",
-                    }}
-                  >
-                    ₹
-                  </span>
-                  <input
-                    className="pp-inp"
-                    type="number"
-                    value={form.priceMin}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, priceMin: e.target.value }))
-                    }
-                    placeholder="e.g. 200"
-                    style={{ ...inp, paddingLeft: 28 }}
-                  />
-                </div>
-              </div>
-              {/* Max */}
-              <div>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: 6,
-                  }}
-                >
-                  <label style={lb}>Max Price (₹)</label>
-                  <VoiceBtn
-                    active={voicePriceMax.listening}
-                    onStart={voicePriceMax.start}
-                    onStop={voicePriceMax.stop}
-                    label="Speak"
-                  />
-                </div>
-                {voicePriceMax.listening && (
-                  <div
-                    style={{ fontSize: 11, color: "#f87171", marginBottom: 4 }}
-                  >
-                    🎤 Say e.g. "saavira" (1000)
-                  </div>
-                )}
-                <div style={{ position: "relative" }}>
-                  <span
-                    style={{
-                      position: "absolute",
-                      left: 13,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      fontSize: 13,
-                      color: "rgba(255,255,255,0.4)",
-                      pointerEvents: "none",
-                    }}
-                  >
-                    ₹
-                  </span>
-                  <input
-                    className="pp-inp"
-                    type="number"
-                    value={form.priceMax}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, priceMax: e.target.value }))
-                    }
-                    placeholder="e.g. 2000"
-                    style={{ ...inp, paddingLeft: 28 }}
-                  />
-                </div>
-              </div>
-            </div>
-            {form.priceMin && form.priceMax && (
               <div
                 style={{
-                  marginTop: 10,
-                  fontSize: 12,
-                  color: "#c8f135",
+                  fontSize: 11,
                   fontWeight: 600,
+                  color: "rgba(255,255,255,0.35)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  marginBottom: 10,
                 }}
               >
-                Clients will see: ₹{Number(form.priceMin).toLocaleString()} – ₹
-                {Number(form.priceMax).toLocaleString()}
+                What clients will see on your profile
               </div>
-            )}
-          </div>
+              {form.selectedWorkTypes.map((id) => {
+                const wt = catData.workTypes.find((w) => w.id === id);
+                const price = workTypePrices[id];
+                if (!wt) return null;
+                return (
+                  <div
+                    key={id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 6,
+                    }}
+                  >
+                    <span
+                      style={{ fontSize: 13, color: "rgba(255,255,255,0.6)" }}
+                    >
+                      {wt.label}
+                    </span>
+                    {price && Number(price) > 0 ? (
+                      <span
+                        style={{
+                          fontFamily: "'Syne',sans-serif",
+                          fontSize: 14,
+                          fontWeight: 700,
+                          color: "#c8f135",
+                        }}
+                      >
+                        ₹{Number(price).toLocaleString()}
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 12, color: "#f87171" }}>
+                        Price not set
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+              {computedPrices.min && (
+                <div
+                  style={{
+                    marginTop: 8,
+                    paddingTop: 8,
+                    borderTop: "1px solid rgba(255,255,255,0.06)",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <span
+                    style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}
+                  >
+                    Profile range shown to clients
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: "'Syne',sans-serif",
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color: "#c8f135",
+                    }}
+                  >
+                    ₹{computedPrices.min.toLocaleString()} – ₹
+                    {computedPrices.max.toLocaleString()}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
-      {/* ── About You ── */}
-      {/* <div style={card}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 8,
-          }}
-        >
-          <label style={{ ...lb, marginBottom: 0 }}>About You</label>
-          <VoiceBtn
-            active={voiceAbout.listening}
-            onStart={voiceAbout.start}
-            onStop={voiceAbout.stop}
-            label="Speak (any language → English)"
-          />
-        </div>
-        {voiceAbout.listening && (
-          <div
-            style={{
-              fontSize: 12,
-              color: "#f87171",
-              marginBottom: 8,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            <div
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: "#f87171",
-                animation: "pulse 1s infinite",
-              }}
-            />
-            Listening… speak in any language
-          </div>
-        )}
-        <textarea
-          className="pp-inp"
-          placeholder="Describe your skills and experience…"
-          value={form.description}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
-          rows={4}
-          style={{ ...inp, resize: "vertical", lineHeight: 1.65 }}
-        />
-      </div> */}
+      {/* About You */}
       <div style={card}>
         <div
           style={{
@@ -1081,8 +3919,7 @@ export default function PortfolioPage() {
                 marginTop: 3,
               }}
             >
-              Speak or type a description of your skills and experience. used
-              here.
+              Speak or type about yourself — shown to clients.
             </div>
           </div>
           <VoiceBtn
@@ -1112,21 +3949,17 @@ export default function PortfolioPage() {
                 animation: "pulse 1s infinite",
               }}
             />
-            Listening… speak in any language — auto-translated to English
+            Listening… auto-translated to English
           </div>
         )}
         <textarea
           className="pp-inp"
-          placeholder="Tell clients about yourself — your experience, what you specialise in, why they should hire you…"
+          placeholder="Tell clients about yourself — your experience, specialisation, why they should hire you…"
           value={form.description}
-          onChange={(e) => {
-            // ✅ Only update if worker is actually typing — never auto-fill from BLIP
-            setForm({ ...form, description: e.target.value });
-          }}
+          onChange={(e) => setForm({ ...form, description: e.target.value })}
           rows={4}
           style={{ ...inp, resize: "vertical", lineHeight: 1.65 }}
         />
-        {/* ✅ Clear button — in case BLIP text leaked in */}
         {form.description && (
           <button
             onClick={() => setForm((p) => ({ ...p, description: "" }))}
@@ -1144,7 +3977,8 @@ export default function PortfolioPage() {
           </button>
         )}
       </div>
-      {/* ── Skills ── */}
+
+      {/* Skills */}
       <div style={card}>
         <div
           style={{
@@ -1164,7 +3998,7 @@ export default function PortfolioPage() {
         </div>
         {voiceSkill.listening && (
           <div style={{ fontSize: 12, color: "#f87171", marginBottom: 8 }}>
-            🎤 Say skill names separated by commas in any language
+            🎤 Say skill names separated by commas
           </div>
         )}
         <div
@@ -1207,9 +4041,7 @@ export default function PortfolioPage() {
             placeholder="Type a skill and press Enter…"
             value={newSkill}
             onChange={(e) => setNewSkill(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") addSkill();
-            }}
+            onKeyDown={(e) => e.key === "Enter" && addSkill()}
             style={{ ...inp, flex: 1 }}
           />
           <button
@@ -1231,7 +4063,7 @@ export default function PortfolioPage() {
         {errors.skills && <div style={errSt}>{errors.skills}</div>}
       </div>
 
-      {/* ── Languages Known ── */}
+      {/* Languages */}
       <div style={card}>
         <label style={lb}>Languages Known</label>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -1266,6 +4098,7 @@ export default function PortfolioPage() {
         </div>
       </div>
 
+      {/* Personal Details */}
       <div style={card}>
         <div
           style={{
@@ -1376,6 +4209,7 @@ export default function PortfolioPage() {
         </div>
       </div>
 
+      {/* Reviews */}
       {portfolio?.reviews?.length > 0 && (
         <div style={card}>
           <label style={{ ...lb, marginBottom: 16 }}>
@@ -1427,7 +4261,7 @@ export default function PortfolioPage() {
         </div>
       )}
 
-      {/* ── Save ── */}
+      {/* Save */}
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <button
           onClick={handleSave}
